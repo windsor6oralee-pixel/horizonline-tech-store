@@ -122,3 +122,9 @@
 - [x] Replace the Sham Cash agent WhatsApp number with 96395968133 in all payment and order links.
 - [x] Update or add assertions for the generated WhatsApp URL and run the relevant tests.
 - [x] Verify the updated payment flow and save a new checkpoint.
+
+## Phone image verification
+
+- [x] Verify that catalog phone images load successfully for Apple, Samsung, and Huawei products.
+- [x] Verify that product-detail images correspond to the selected phone and variant.
+- [x] Record any missing, broken, or mismatched images and fix them if necessary.

@@ -13,7 +13,7 @@ type CatalogProduct = SelectedProduct & { demo?: boolean };
 const demoProducts: CatalogProduct[] = [
   {
     id: "demo-iphone-17-pro-max", handle: "iphone-17-pro-max", title: "iPhone 17 Pro Max", description: "256GB · ثلاثة ألوان حصرية", descriptionHtml: "", productType: "هواتف", vendor: "Apple", tags: ["Apple", "iPhone", "17 Pro Max"], options: [{ name: "اللون", values: ["برتقالي كوني", "فضي قمري", "كحلي عميق"] }],
-    priceRange: { min: { amount: "1199", currencyCode: "USD" }, max: { amount: "1199", currencyCode: "USD" } }, images: [{ url: "/manus-storage/iphone-17-pro-max-colors_8c6b31bf.png", altText: "iPhone 17 Pro Max بالألوان البرتقالي والفضي والكحلي" }],
+    priceRange: { min: { amount: "1199", currencyCode: "USD" }, max: { amount: "1199", currencyCode: "USD" } }, images: [{ url: "/manus-storage/appl-iphone-17-pro-max_baf0b104.png", altText: "iPhone 17 Pro Max بالألوان البرتقالي والفضي والكحلي" }],
     variants: [
       { id: "demo-iphone-17-pro-max-orange", title: "برتقالي كوني", availableForSale: true, price: { amount: "1199", currencyCode: "USD" }, compareAtPrice: null, selectedOptions: [{ name: "اللون", value: "برتقالي كوني" }] },
       { id: "demo-iphone-17-pro-max-silver", title: "فضي قمري", availableForSale: true, price: { amount: "1199", currencyCode: "USD" }, compareAtPrice: null, selectedOptions: [{ name: "اللون", value: "فضي قمري" }] },
@@ -22,17 +22,17 @@ const demoProducts: CatalogProduct[] = [
   },
   {
     id: "demo-iphone", handle: "iphone-16-pro", title: "iPhone 16 Pro", description: "256GB · تيتانيوم صحراوي", descriptionHtml: "", productType: "هواتف", vendor: "Apple", tags: ["Apple"], options: [],
-    priceRange: { min: { amount: "999", currencyCode: "USD" }, max: { amount: "999", currencyCode: "USD" } }, images: [{ url: "/manus-storage/iphone-16-pro_28b49283.png", altText: "iPhone 16 Pro" }],
+    priceRange: { min: { amount: "999", currencyCode: "USD" }, max: { amount: "999", currencyCode: "USD" } }, images: [{ url: "/manus-storage/appl-iphone-16-pro_c18b022c.png", altText: "iPhone 16 Pro" }],
     variants: [{ id: "demo-iphone-variant", title: "256GB", availableForSale: true, price: { amount: "999", currencyCode: "USD" }, compareAtPrice: null, selectedOptions: [] }], demo: true,
   },
   {
     id: "demo-samsung", handle: "galaxy-s25-ultra", title: "Galaxy S25 Ultra", description: "256GB · تيتانيوم فضي", descriptionHtml: "", productType: "هواتف", vendor: "Samsung", tags: ["Samsung"], options: [],
-    priceRange: { min: { amount: "899", currencyCode: "USD" }, max: { amount: "899", currencyCode: "USD" } }, images: [{ url: "/manus-storage/samsung-galaxy-s25-ultra_1b1c2d74.png", altText: "Galaxy S25 Ultra" }],
+    priceRange: { min: { amount: "899", currencyCode: "USD" }, max: { amount: "899", currencyCode: "USD" } }, images: [{ url: "/manus-storage/appl-galaxy-s25-ultra_c47ead4e.png", altText: "Galaxy S25 Ultra" }],
     variants: [{ id: "demo-samsung-variant", title: "256GB", availableForSale: true, price: { amount: "899", currencyCode: "USD" }, compareAtPrice: null, selectedOptions: [] }], demo: true,
   },
   {
     id: "demo-huawei", handle: "huawei-pura-70-ultra", title: "HUAWEI Pura 70 Ultra", description: "512GB · أسود ملكي", descriptionHtml: "", productType: "هواتف", vendor: "Huawei", tags: ["Huawei"], options: [],
-    priceRange: { min: { amount: "720", currencyCode: "USD" }, max: { amount: "720", currencyCode: "USD" } }, images: [{ url: "/manus-storage/huawei-pura-70-ultra_c80261af.png", altText: "HUAWEI Pura 70 Ultra" }],
+    priceRange: { min: { amount: "720", currencyCode: "USD" }, max: { amount: "720", currencyCode: "USD" } }, images: [{ url: "/manus-storage/appl-huawei-pura-70-ultra_4c087735.png", altText: "HUAWEI Pura 70 Ultra" }],
     variants: [{ id: "demo-huawei-variant", title: "512GB", availableForSale: true, price: { amount: "720", currencyCode: "USD" }, compareAtPrice: null, selectedOptions: [] }], demo: true,
   },
 ];
