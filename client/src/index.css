@@ -260,3 +260,10 @@ body { font-family: "Cairo", sans-serif; direction: rtl; background: #f7fafb; co
   .mobile-cta { margin: 2rem -1.25rem -1.25rem; padding: .9rem 1.25rem calc(.9rem + env(safe-area-inset-bottom)); border-top: 1px solid rgba(7,29,50,.08); background: color-mix(in srgb, white 94%, transparent); }
   .mobile-cta .button-dark { width: 100%; }
 }
+
+.checkout-step-panel { animation: checkout-step-enter .32s cubic-bezier(.23, 1, .32, 1) both; transform-origin: top center; }
+@keyframes checkout-step-enter { from { opacity: 0; transform: translateY(14px) scale(.99); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .checkout-step-panel { animation: none; }
+}

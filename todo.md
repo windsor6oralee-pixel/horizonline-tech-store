@@ -158,4 +158,10 @@
 - [x] Inspect the order creation path and admin list query for today’s orders.
 - [x] Verify whether today’s orders exist in the active database and whether timezone or deployment storage causes the mismatch.
 - [x] Fix the persistence or admin display issue and add regression coverage.
-- [ ] Verify the orders appear in the admin dashboard and save a checkpoint.
+- [x] Verify the orders appear in the admin dashboard and save a checkpoint.
+
+## Checkout step transition improvement
+
+- [x] Make each next checkout step open at the top of the page.
+- [x] Add a smooth transition effect when advancing to the next checkout step.
+- [x] Verify the behavior on mobile and desktop and save a checkpoint.
