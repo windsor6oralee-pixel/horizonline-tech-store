@@ -2,12 +2,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { TrpcContext } from "../_core/context";
 import { ordersRouter } from "./orders";
 
-const { createInstallmentOrderMock, createIncompleteCheckoutLeadMock, getIncompleteCheckoutLeadsMock, incompleteLeadStore, reviewInstallmentPaymentProofMock, updateIncompleteCheckoutLeadStatusMock } = vi.hoisted(() => {
+const { createInstallmentOrderMock, createIncompleteCheckoutLeadMock, getIncompleteCheckoutLeadsMock, getInstallmentOrdersMock, incompleteLeadStore, reviewInstallmentPaymentProofMock, updateIncompleteCheckoutLeadStatusMock } = vi.hoisted(() => {
   const incompleteLeadStore: Array<Record<string, unknown>> = [];
   return {
     createInstallmentOrderMock: vi.fn(),
     createIncompleteCheckoutLeadMock: vi.fn(),
     getIncompleteCheckoutLeadsMock: vi.fn(),
+    getInstallmentOrdersMock: vi.fn(),
     incompleteLeadStore,
     reviewInstallmentPaymentProofMock: vi.fn(),
     updateIncompleteCheckoutLeadStatusMock: vi.fn(),
@@ -19,7 +20,7 @@ vi.mock("../db", () => ({
   createInstallmentOrder: createInstallmentOrderMock,
   createIncompleteCheckoutLead: createIncompleteCheckoutLeadMock,
   getIncompleteCheckoutLeads: getIncompleteCheckoutLeadsMock,
-  getInstallmentOrders: vi.fn(),
+  getInstallmentOrders: getInstallmentOrdersMock,
   reviewInstallmentPaymentProof: reviewInstallmentPaymentProofMock,
   updateIncompleteCheckoutLeadStatus: updateIncompleteCheckoutLeadStatusMock,
   updateInstallmentOrderStatus: vi.fn(),
@@ -113,6 +114,24 @@ describe("orders.submit", () => {
     const caller = ordersRouter.createCaller(guestContext());
     await expect(caller.submit({ ...validOrder, identityDocument: { ...validOrder.identityDocument, dataUrl: "data:text/plain;base64,aGVsbG8=" } })).rejects.toBeDefined();
     await expect(caller.submit({ ...validOrder, hasExistingInstallments: "unknown" as "no" })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+  });
+});
+
+describe("orders.list", () => {
+  it("يعرض للمدير الطلبات التي يعيدها مخزن الطلبات", async () => {
+    getInstallmentOrdersMock.mockResolvedValueOnce([
+      { id: 1, orderNumber: "APPL-TEST", customerName: "أحمد محمد", productTitle: "iPhone 17 Pro", identityDocumentKey: null },
+    ]);
+
+    const caller = ordersRouter.createCaller(adminContext());
+    await expect(caller.list()).resolves.toMatchObject([
+      { id: 1, orderNumber: "APPL-TEST", customerName: "أحمد محمد", productTitle: "iPhone 17 Pro", identityDocumentUrl: null },
+    ]);
+  });
+
+  it("يمنع الزائر من عرض الطلبات", async () => {
+    const caller = ordersRouter.createCaller(guestContext());
+    await expect(caller.list()).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
 });
 

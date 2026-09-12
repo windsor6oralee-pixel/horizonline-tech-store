@@ -152,3 +152,10 @@
 - [x] Set ADMIN_USERNAME to nabeel and ADMIN_PASSWORD to the user-provided password.
 - [x] Validate the new credentials through the admin login endpoint and browser flow.
 - [x] Save a checkpoint after successful login verification.
+
+## Admin orders missing today
+
+- [x] Inspect the order creation path and admin list query for today’s orders.
+- [x] Verify whether today’s orders exist in the active database and whether timezone or deployment storage causes the mismatch.
+- [x] Fix the persistence or admin display issue and add regression coverage.
+- [ ] Verify the orders appear in the admin dashboard and save a checkpoint.
