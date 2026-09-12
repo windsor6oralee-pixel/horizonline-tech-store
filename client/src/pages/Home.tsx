@@ -13,7 +13,7 @@ type CatalogProduct = SelectedProduct & { demo?: boolean };
 const demoProducts: CatalogProduct[] = [
   {
     id: "demo-iphone-18-pro-max", handle: "iphone-18-pro-max", title: "iPhone 18 Pro Max", description: "256GB · أربعة ألوان حصرية", descriptionHtml: "", productType: "هواتف", vendor: "Apple", tags: ["Apple", "iPhone", "18 Pro Max"], options: [{ name: "اللون", values: ["عنابي", "أزرق سماوي", "أبيض", "أسود"] }, { name: "السعة", values: ["256GB"] }], minDownPayment: 150,
-    priceRange: { min: { amount: "1370", currencyCode: "USD" }, max: { amount: "1370", currencyCode: "USD" } }, images: [{ url: "/manus-storage/iphone-18-pro-max-256gb_42558889.webp", altText: "iPhone 18 Pro Max 256GB باللون العنابي" }],
+    priceRange: { min: { amount: "1370", currencyCode: "USD" }, max: { amount: "1370", currencyCode: "USD" } }, images: [{ url: "/manus-storage/iphone-18-pro-max-cropped_b393f81d.png", altText: "iPhone 18 Pro Max 256GB باللون العنابي" }],
     variants: [
       { id: "demo-iphone-18-pro-max-burgundy", title: "عنابي · 256GB", availableForSale: true, price: { amount: "1370", currencyCode: "USD" }, compareAtPrice: null, selectedOptions: [{ name: "اللون", value: "عنابي" }, { name: "السعة", value: "256GB" }] },
       { id: "demo-iphone-18-pro-max-sky", title: "أزرق سماوي · 256GB", availableForSale: true, price: { amount: "1370", currencyCode: "USD" }, compareAtPrice: null, selectedOptions: [{ name: "اللون", value: "أزرق سماوي" }, { name: "السعة", value: "256GB" }] },

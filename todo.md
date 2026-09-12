@@ -172,3 +172,9 @@
 - [x] Set the minimum down payment for this product to $150 and preserve the applicable installment discounts.
 - [x] Store and link the provided product image using the project asset workflow.
 - [x] Verify the product card, variant selection, installment calculation, and save a checkpoint.
+
+## iPhone 18 product image crop fix
+
+- [x] Verify the failed visual editor target and locate the current iPhone 18 image reference.
+- [x] Create a standalone cropped phone render and link it to the iPhone 18 product image.
+- [x] Verify the catalog preview and save a new checkpoint.
