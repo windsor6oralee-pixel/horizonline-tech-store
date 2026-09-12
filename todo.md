@@ -165,3 +165,10 @@
 - [x] Make each next checkout step open at the top of the page.
 - [x] Add a smooth transition effect when advancing to the next checkout step.
 - [x] Verify the behavior on mobile and desktop and save a checkpoint.
+
+## Add iPhone 18 Pro Max 256GB
+
+- [x] Add iPhone 18 Pro Max 256GB at $1,370 with burgundy, sky blue, white, and black color options.
+- [x] Set the minimum down payment for this product to $150 and preserve the applicable installment discounts.
+- [x] Store and link the provided product image using the project asset workflow.
+- [x] Verify the product card, variant selection, installment calculation, and save a checkpoint.
