@@ -128,3 +128,15 @@
 - [x] Verify that catalog phone images load successfully for Apple, Samsung, and Huawei products.
 - [x] Verify that product-detail images correspond to the selected phone and variant.
 - [x] Record any missing, broken, or mismatched images and fix them if necessary.
+
+## Shopify Storefront API error
+
+- [ ] Diagnose why the home-page products query surfaces an unconfigured Shopify error.
+- [ ] Make the products query degrade safely to the preview catalog when Shopify is unavailable or unconfigured.
+- [ ] Add or update regression coverage and verify the home page after the fix.
+
+## WhatsApp agent number correction
+
+- [x] Replace the WhatsApp agent number with the Syrian international format 963959968133 in all application links and constants.
+- [x] Update WhatsApp-related tests and verify no previous agent number remains in application files.
+- [x] Save a checkpoint after successful verification.

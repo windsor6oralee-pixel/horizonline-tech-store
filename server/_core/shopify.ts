@@ -275,6 +275,10 @@ export type ListProductsOptions = {
 export async function listProducts(
   options: ListProductsOptions = {}
 ): Promise<Product[]> {
+  // The storefront can render its preview catalog when Shopify is not connected.
+  // Keep the public catalog query non-throwing so the homepage remains usable.
+  if (!isShopifyConfigured()) return [];
+
   const first = options.first ?? 24;
 
   if (options.collectionHandle) {
