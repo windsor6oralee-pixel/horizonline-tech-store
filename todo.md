@@ -183,4 +183,4 @@
 
 - [x] Replace the targeted product image with an orange iPhone 17 Pro Max sticker asset.
 - [x] Add a new animated logo treatment to the targeted product-image area.
-- [ ] Verify the visual result and save a checkpoint.
+- [x] Verify the visual result and save a checkpoint.
