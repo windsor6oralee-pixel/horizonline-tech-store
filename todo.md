@@ -140,3 +140,15 @@
 - [x] Replace the WhatsApp agent number with the Syrian international format 963959968133 in all application links and constants.
 - [x] Update WhatsApp-related tests and verify no previous agent number remains in application files.
 - [x] Save a checkpoint after successful verification.
+
+## Admin login failure
+
+- [x] Verify the configured admin username and password used by the current copy.
+- [x] Fix the admin login flow or configuration so the verified credentials are accepted.
+- [x] Test the /admin login flow and save a checkpoint after confirmation.
+
+## Admin credentials update
+
+- [x] Set ADMIN_USERNAME to nabeel and ADMIN_PASSWORD to the user-provided password.
+- [x] Validate the new credentials through the admin login endpoint and browser flow.
+- [x] Save a checkpoint after successful login verification.
