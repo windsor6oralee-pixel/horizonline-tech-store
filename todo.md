@@ -178,3 +178,9 @@
 - [x] Verify the failed visual editor target and locate the current iPhone 18 image reference.
 - [x] Create a standalone cropped phone render and link it to the iPhone 18 product image.
 - [x] Verify the catalog preview and save a new checkpoint.
+
+## Manual visual-editor comment fixes
+
+- [x] Replace the targeted product image with an orange iPhone 17 Pro Max sticker asset.
+- [x] Add a new animated logo treatment to the targeted product-image area.
+- [ ] Verify the visual result and save a checkpoint.
