@@ -1,4 +1,4 @@
-export const SHAM_CASH_WHATSAPP_NUMBER = "963990999462";
+export const SHAM_CASH_WHATSAPP_NUMBER = "96395968133";
 
 export type WhatsAppOrderDetails = {
   customerName: string;

@@ -12,7 +12,7 @@ describe("createWhatsAppOrderLink", () => {
     });
 
     const url = new URL(link);
-    expect(SHAM_CASH_WHATSAPP_NUMBER).toBe("963990999462");
+    expect(SHAM_CASH_WHATSAPP_NUMBER).toBe("96395968133");
     expect(url.hostname).toBe("wa.me");
     expect(url.pathname).toBe(`/${SHAM_CASH_WHATSAPP_NUMBER}`);
     expect(url.searchParams.get("text")).toContain("الاسم: أحمد محمد");

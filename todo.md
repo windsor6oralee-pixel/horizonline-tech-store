@@ -114,5 +114,11 @@
 
 ## Publication request
 
-- [ ] Prepare and save a final checkpoint for user-initiated publication.
+- [x] Prepare and save a final checkpoint for user-initiated publication.
 - [ ] User clicks Publish from the project management interface; publication is not executed automatically.
+
+## WhatsApp agent number update
+
+- [x] Replace the Sham Cash agent WhatsApp number with 96395968133 in all payment and order links.
+- [x] Update or add assertions for the generated WhatsApp URL and run the relevant tests.
+- [x] Verify the updated payment flow and save a new checkpoint.
