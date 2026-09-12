@@ -105,3 +105,14 @@
 - [x] ربط صفحة الدخول بالجلسة المحمية واختبار فتح /admin وتسجيل الخروج.
 - [ ] حفظ checkpoint بعد نجاح دخول الإدارة البديل.
 - [ ] حفظ checkpoint بعد نجاح تسجيل الدخول وإرشاد المستخدم للرابط الصحيح.
+
+## Fresh-copy session scope
+
+- [x] Confirm this project is an independent copy with its own development scope.
+- [x] Summarize the existing copied features and technology stack for the user.
+- [x] Ask the user what they would like to do next; do not continue inherited pending items automatically.
+
+## Publication request
+
+- [ ] Prepare and save a final checkpoint for user-initiated publication.
+- [ ] User clicks Publish from the project management interface; publication is not executed automatically.
