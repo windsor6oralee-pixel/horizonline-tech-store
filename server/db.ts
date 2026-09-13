@@ -1,6 +1,6 @@
 import { desc, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { IncompleteCheckoutLead, InsertIncompleteCheckoutLead, InsertInstallmentOrder, InsertUser, incompleteCheckoutLeads, installmentOrders, users } from "../drizzle/schema";
+import { IncompleteCheckoutLead, InsertIncompleteCheckoutLead, InsertInstallmentOrder, InsertUser, incompleteCheckoutLeads, installmentOrders, storeSettings, users } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -138,4 +138,27 @@ export async function reviewInstallmentPaymentProof(
   const db = await getDb();
   if (!db) throw new Error("قاعدة البيانات غير متاحة حالياً");
   await db.update(installmentOrders).set({ paymentProofStatus, paymentProofReviewedAt: new Date() }).where(eq(installmentOrders.id, id));
+}
+
+export async function getStoreSetting(key: string): Promise<string | null> {
+  const db = await getDb();
+  if (!db) return null;
+  try {
+    const rows = await db.select().from(storeSettings).where(eq(storeSettings.key, key)).limit(1);
+    return rows[0]?.value ?? null;
+  } catch (error) {
+    console.warn("[Settings] read failed (run `pnpm db:push`?):", error);
+    return null;
+  }
+}
+
+export async function setStoreSetting(key: string, value: string): Promise<void> {
+  const db = await getDb();
+  if (!db) throw new Error("قاعدة البيانات غير متصلة");
+  try {
+    await db.insert(storeSettings).values({ key, value }).onDuplicateKeyUpdate({ set: { value } });
+  } catch (error) {
+    console.error("[Settings] write failed:", error);
+    throw new Error("تعذر حفظ الإعداد — تأكد من تشغيل pnpm db:push على الخادم");
+  }
 }

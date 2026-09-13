@@ -1,8 +1,11 @@
 import { MapPin, MessageCircle, ShieldCheck, Smartphone } from "lucide-react";
-import { WHATSAPP_BUSINESS_LINK, WHATSAPP_DISPLAY_NUMBER, WHATSAPP_HANDLE } from "@shared/whatsapp";
+import { SHAM_CASH_WHATSAPP_NUMBER, WHATSAPP_HANDLE, formatWhatsAppNumber, whatsAppChatLink } from "@shared/whatsapp";
+import { trpc } from "@/lib/trpc";
 import { BrandLockup } from "@/components/BrandLogo";
 
 export default function StoreFooter() {
+  const { data: settings } = trpc.settings.public.useQuery(undefined, { retry: false, staleTime: 60_000 });
+  const whatsapp = settings?.whatsappNumber ?? SHAM_CASH_WHATSAPP_NUMBER;
   return (
     <footer className="bg-[#061b37] text-[#c9d7e1]" dir="rtl">
       <div className="mx-auto max-w-7xl px-5 py-12 sm:py-16">
@@ -37,7 +40,7 @@ export default function StoreFooter() {
                 <span className="mt-1 grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[#8ad9e3]/10 text-[#8ad9e3]">
                   <MessageCircle className="h-4 w-4" />
                 </span>
-                <span><b className="block text-[#e8f3f2]">واتساب</b><a href={WHATSAPP_BUSINESS_LINK} target="_blank" rel="noopener noreferrer" className="font-mono text-[#8ad9e3] hover:underline" dir="ltr">{WHATSAPP_DISPLAY_NUMBER}</a><span className="block text-xs text-[#8da5b5]" dir="ltr">{WHATSAPP_HANDLE}</span></span>
+                <span><b className="block text-[#e8f3f2]">واتساب</b><a href={whatsAppChatLink(whatsapp)} target="_blank" rel="noopener noreferrer" className="font-mono text-[#8ad9e3] hover:underline" dir="ltr">{formatWhatsAppNumber(whatsapp)}</a><span className="block text-xs text-[#8da5b5]" dir="ltr">{WHATSAPP_HANDLE}</span></span>
               </p>
             </div>
           </div>

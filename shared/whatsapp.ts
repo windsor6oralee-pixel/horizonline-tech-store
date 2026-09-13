@@ -1,7 +1,18 @@
 export const SHAM_CASH_WHATSAPP_NUMBER = "12727462228";
-export const WHATSAPP_DISPLAY_NUMBER = "+1 (272) 746-2228";
-export const WHATSAPP_BUSINESS_LINK = "https://wa.me/message/3UUTCZIMZVROD1";
 export const WHATSAPP_HANDLE = "@horizonlinetech";
+export const WHATSAPP_SETTING_KEY = "whatsappNumber";
+
+/** Digits only, international format without "+" or leading "00". */
+export function normalizeWhatsAppNumber(input: string): string {
+  return input.replace(/\D/g, "").replace(/^00/, "");
+}
+
+export function isValidWhatsAppNumber(digits: string): boolean {
+  return /^[1-9]\d{7,14}$/.test(digits);
+}
+
+export const formatWhatsAppNumber = (digits: string) => `+${digits}`;
+export const whatsAppChatLink = (digits: string) => `https://wa.me/${digits}`;
 
 export type WhatsAppOrderDetails = {
   customerName: string;
@@ -11,7 +22,7 @@ export type WhatsAppOrderDetails = {
   monthlyInstallmentUsd: number;
 };
 
-export function createWhatsAppOrderLink(details: WhatsAppOrderDetails): string {
+export function createWhatsAppOrderLink(details: WhatsAppOrderDetails, number: string = SHAM_CASH_WHATSAPP_NUMBER): string {
   const message = [
     "مرحباً هوريزون موبايل، أريد الحصول على معلومات دفع شام كاش عبر الوكيل.",
     `الاسم: ${details.customerName}`,
@@ -22,5 +33,5 @@ export function createWhatsAppOrderLink(details: WhatsAppOrderDetails): string {
     "أرغب بالدفع الآن، يرجى إرسال التعليمات.",
   ].join("\n");
 
-  return `https://wa.me/${SHAM_CASH_WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`;
+  return `${whatsAppChatLink(number)}?text=${encodeURIComponent(message)}`;
 }

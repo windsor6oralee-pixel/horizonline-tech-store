@@ -43,6 +43,13 @@
       "when": 1788133420773,
       "tag": "0005_conscious_serpent_society",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "5",
+      "when": 1789339163150,
+      "tag": "0006_equal_ironclad",
+      "breakpoints": true
     }
   ]
 }

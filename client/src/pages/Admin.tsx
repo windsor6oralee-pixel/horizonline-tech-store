@@ -2,8 +2,10 @@ import { useAuth } from "@/_core/hooks/useAuth";
 import DashboardLayout from "@/components/DashboardLayout";
 import StoreFooter from "@/components/StoreFooter";
 import { trpc } from "@/lib/trpc";
-import { CheckCircle2, ClipboardList, ExternalLink, FileText, IdCard, Loader2, PhoneCall, ShieldAlert, Truck, XCircle } from "lucide-react";
+import { CheckCircle2, ClipboardList, ExternalLink, FileText, IdCard, Loader2, MessageCircle, PhoneCall, ShieldAlert, Truck, XCircle } from "lucide-react";
+import { FormEvent, useEffect, useState } from "react";
 import { toast } from "sonner";
+import { formatWhatsAppNumber, normalizeWhatsAppNumber } from "@shared/whatsapp";
 
 const statusLabels = { new: "جديد", under_review: "قيد المراجعة", approved: "معتمد", needs_contact: "يتطلب تواصلاً", cancelled: "ملغي" } as const;
 const leadStatusLabels = { new: "جديد", contacted: "تم التواصل", converted: "تحوّل إلى طلب", closed: "مغلق" } as const;
@@ -25,6 +27,7 @@ export default function Admin() {
     {!isAdmin ? <section className="mx-auto max-w-2xl rounded-[28px] border border-amber-200 bg-amber-50 p-8 text-center"><ShieldAlert className="mx-auto h-9 w-9 text-amber-600" /><h1 className="mt-4 text-xl font-extrabold text-amber-950">هذه الصفحة للمدير فقط</h1><p className="mt-2 text-sm leading-7 text-amber-800">سجّل الدخول بالحساب المعيّن كمدير للمشروع لعرض البيانات الحساسة للطلبات.</p></section> : <>
       <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end"><div><p className="eyebrow">HORIZONLINE / OPERATIONS</p><h1 className="mt-2 text-3xl font-extrabold tracking-tight text-[#0a2342]">طلبات التقسيط</h1><p className="mt-2 text-sm text-slate-500">راجع التأهل المبدئي وبيانات التسليم ثم حدّث الحالة.</p></div><span className="rounded-full bg-[#e8f3fa] px-4 py-2 text-sm font-bold text-[#1f6f96]">لا تُشارك بيانات العملاء خارج نطاق الطلب</span></div>
       <div className="mt-7 grid gap-4 md:grid-cols-4"><Stat icon={ClipboardList} value={total} label="إجمالي الطلبات" /><Stat icon={CheckCircle2} value={approved} label="طلبات معتمدة" tone="green" /><Stat icon={FileText} value={pendingProofs} label="إيصالات بانتظار المراجعة" tone="yellow" /><Stat icon={PhoneCall} value={newLeads} label="متابعات جديدة" tone="blue" /></div>
+      <WhatsAppSettings />
       <section className="mt-7 overflow-hidden rounded-[25px] border border-[#d8e7e6] bg-[#fbfefe]"><div className="flex flex-col gap-2 border-b border-[#e4efed] px-6 py-5 sm:flex-row sm:items-center sm:justify-between"><div><h2 className="font-extrabold text-[#0a2342]">طلبات غير مكتملة</h2><p className="mt-1 text-xs text-slate-500">بيانات التواصل التي حفظها العميل بموافقته فقط، من دون وثائق هوية أو إثبات دفع.</p></div><span className="rounded-full bg-[#e8f3fa] px-3 py-1 text-xs font-bold text-[#1f6f96]">{incompleteLeads.length} متابعة</span></div>{leadsLoading ? <div className="grid min-h-32 place-items-center"><Loader2 className="h-5 w-5 animate-spin text-[#1f6f96]" /></div> : incompleteLeads.length === 0 ? <div className="px-6 py-10 text-center"><PhoneCall className="mx-auto h-8 w-8 text-slate-300" /><p className="mt-3 text-sm font-bold text-slate-500">لا توجد متابعات محفوظة بعد.</p></div> : <div className="grid gap-3 p-4 md:grid-cols-2">{incompleteLeads.map(lead => <article key={lead.id} className="rounded-2xl border border-slate-200 bg-white p-4"><div className="flex items-start justify-between gap-3"><div><p className="font-extrabold text-[#0a2342]">{lead.customerName}</p><p className="mt-1 text-xs text-slate-500">{lead.phone} · {lead.province}</p></div><span className="rounded-full bg-[#eff5fa] px-2 py-1 text-[10px] font-extrabold text-[#1f6f96]">بموافقة العميل</span></div><p className="mt-4 font-bold text-slate-700">{lead.productTitle}</p><p className="mt-1 text-xs text-slate-500">دفعة {lead.downPaymentUsd}$ · {lead.months} شهر · {new Date(lead.createdAt).toLocaleDateString("ar-SY")}</p><div className="mt-4 flex items-center justify-between gap-3"><span className="text-[11px] font-bold text-slate-400">لا توجد وثائق ضمن هذا السجل</span><select className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-[11px] font-bold text-slate-700" value={lead.status} onChange={event => updateLead.mutate({ id: lead.id, status: event.target.value as keyof typeof leadStatusLabels })} disabled={updateLead.isPending}>{Object.entries(leadStatusLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></div></article>)}</div>}</section>
       <section className="mt-7 overflow-hidden rounded-[25px] border border-slate-200 bg-white">
         <div className="flex items-center justify-between border-b border-slate-100 px-6 py-5"><h2 className="font-extrabold text-[#0a2342]">سجل الطلبات</h2><span className="text-xs font-bold text-slate-400">{total} طلب</span></div>
@@ -33,6 +36,25 @@ export default function Admin() {
     </>}
     <StoreFooter />
   </DashboardLayout>;
+}
+
+function WhatsAppSettings() {
+  const utils = trpc.useUtils();
+  const { data, isLoading } = trpc.settings.public.useQuery();
+  const [value, setValue] = useState("");
+  useEffect(() => { if (data) setValue(formatWhatsAppNumber(data.whatsappNumber)); }, [data]);
+  const save = trpc.settings.updateWhatsApp.useMutation({
+    onSuccess: result => { toast.success(`تم حفظ رقم واتساب: ${formatWhatsAppNumber(result.whatsappNumber)}`); utils.settings.public.invalidate(); },
+    onError: error => toast.error(error.message || "تعذر حفظ الرقم"),
+  });
+  const dirty = data ? normalizeWhatsAppNumber(value) !== data.whatsappNumber : false;
+  const submit = (event: FormEvent) => { event.preventDefault(); save.mutate({ whatsappNumber: value }); };
+  return <section className="mt-7 rounded-[25px] border border-slate-200 bg-white p-6">
+    <div className="flex items-start gap-4"><span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[#e8f3fa] text-[#1f6f96]"><MessageCircle className="h-5 w-5" /></span><div className="min-w-0 flex-1"><h2 className="font-extrabold text-[#0a2342]">رقم واتساب المتجر</h2><p className="mt-1 text-xs leading-6 text-slate-500">يُستخدم في زر «ادفع الآن عبر واتساب» داخل صفحة الدفع وفي الفوتر. أدخله بالصيغة الدولية مع رمز الدولة.</p>
+      <form onSubmit={submit} className="mt-4 flex flex-col gap-3 sm:flex-row"><input dir="ltr" inputMode="tel" value={value} onChange={event => setValue(event.target.value)} placeholder="+1 272 746 2228" disabled={isLoading} className="form-field font-mono sm:max-w-xs" /><button type="submit" disabled={!dirty || save.isPending || isLoading} className="button-dark h-[49px] rounded-xl px-6 text-sm disabled:cursor-not-allowed disabled:opacity-50">{save.isPending ? "جارٍ الحفظ…" : "حفظ الرقم"}</button></form>
+      {data && <p className="mt-3 text-[11px] font-bold text-slate-400" dir="ltr">الحالي: {formatWhatsAppNumber(data.whatsappNumber)} · wa.me/{data.whatsappNumber}</p>}
+    </div></div>
+  </section>;
 }
 
 function Stat({ icon: Icon, value, label, tone = "blue" }: { icon: typeof ClipboardList; value: string | number; label: string; tone?: "blue" | "green" | "yellow" }) {

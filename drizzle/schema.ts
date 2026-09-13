@@ -23,6 +23,12 @@ export const users = mysqlTable("users", {
 });
 
 export type User = typeof users.$inferSelect;
+
+export const storeSettings = mysqlTable("storeSettings", {
+  key: varchar("key", { length: 64 }).primaryKey(),
+  value: text("value").notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
 export type InsertUser = typeof users.$inferInsert;
 
 export const installmentOrders = mysqlTable("installmentOrders", {

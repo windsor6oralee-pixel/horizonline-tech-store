@@ -126,7 +126,8 @@ function PaymentStep({ confirm, back, busy, productTitle, productHandle, custome
     reader.onerror = () => toast.error("تعذر قراءة ملف إثبات السداد");
     reader.readAsDataURL(file);
   };
-  const whatsappLink = createWhatsAppOrderLink({ customerName, productTitle, downPaymentUsd: downPayment, months, monthlyInstallmentUsd: monthly });
+  const { data: settings } = trpc.settings.public.useQuery(undefined, { retry: false, staleTime: 60_000 });
+  const whatsappLink = createWhatsAppOrderLink({ customerName, productTitle, downPaymentUsd: downPayment, months, monthlyInstallmentUsd: monthly }, settings?.whatsappNumber);
   const saveForContact = () => {
     if (!saveConsent) return toast.error("وافق على حفظ بيانات التواصل أولاً");
     saveLead.mutate({ productTitle, productHandle, customerName, phone, province, downPaymentUsd: downPayment, months, checkoutStep: "payment", consent: true });
