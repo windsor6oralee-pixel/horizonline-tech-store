@@ -46,8 +46,15 @@ pnpm db:push
 ```
 
 ### 6. النطاق
-Railway يوفر نطاق مجاني مثل: `horizonline-tech-store.up.railway.app`
-يمكنك ربط نطاق خاص من Settings → Networking.
+في خدمة الموقع (وليس MySQL): **Settings → Networking → Generate Domain**.
+عندما يسأل عن الـ Port اكتب **8080** (Railway يمرر `PORT=8080` للتطبيق). إذا ظهر 502، فالمنفذ خاطئ — عدّله من أيقونة القلم بجانب الرابط.
+
+الرابط الحالي: https://horizonline-tech-store-production.up.railway.app
+
+ملاحظات:
+- المتغيرات تُضاف في خدمة الموقع `horizonline-tech-store`، وليس في خدمة MySQL (تعديل متغيرات MySQL يظهر تحذيراً ويجب إلغاؤه).
+- أضمن صيغة لـ `DATABASE_URL` هي الربط التلقائي: `${{MySQL.MYSQL_URL}}`.
+- تحذير `OAUTH_SERVER_URL is not configured` في اللوجز غير مؤثر؛ تسجيل دخول الإدارة يعتمد على `ADMIN_USERNAME`/`ADMIN_PASSWORD`.
 
 ---
 
