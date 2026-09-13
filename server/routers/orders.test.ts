@@ -75,7 +75,7 @@ describe("orders.submit", () => {
     const result = await caller.submit(validOrder);
 
     expect(result.status).toBe("new");
-    expect(result.orderNumber).toMatch(/^APPL-/);
+    expect(result.orderNumber).toMatch(/^HZ-/);
     expect(result.plan.discountPercent).toBe(10);
     expect(result.plan.monthlyUsd).toBeCloseTo(31.21, 2);
     expect(createInstallmentOrderMock).toHaveBeenCalledWith(expect.objectContaining({
@@ -120,12 +120,12 @@ describe("orders.submit", () => {
 describe("orders.list", () => {
   it("يعرض للمدير الطلبات التي يعيدها مخزن الطلبات", async () => {
     getInstallmentOrdersMock.mockResolvedValueOnce([
-      { id: 1, orderNumber: "APPL-TEST", customerName: "أحمد محمد", productTitle: "iPhone 17 Pro", identityDocumentKey: null },
+      { id: 1, orderNumber: "HZ-TEST", customerName: "أحمد محمد", productTitle: "iPhone 17 Pro", identityDocumentKey: null },
     ]);
 
     const caller = ordersRouter.createCaller(adminContext());
     await expect(caller.list()).resolves.toMatchObject([
-      { id: 1, orderNumber: "APPL-TEST", customerName: "أحمد محمد", productTitle: "iPhone 17 Pro", identityDocumentUrl: null },
+      { id: 1, orderNumber: "HZ-TEST", customerName: "أحمد محمد", productTitle: "iPhone 17 Pro", identityDocumentUrl: null },
     ]);
   });
 

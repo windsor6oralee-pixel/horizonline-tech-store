@@ -78,7 +78,7 @@ function safeFileName(fileName: string, mimeType: string) {
 export const ordersRouter = router({
   submit: publicProcedure.input(orderInput).mutation(async ({ input, ctx }) => {
     const plan = calculateInstallmentPlan(input.priceUsd, input.downPaymentUsd, input.months);
-    const orderNumber = `APPL-${Date.now().toString(36).toUpperCase()}-${nanoid(5).toUpperCase()}`;
+    const orderNumber = `HZ-${Date.now().toString(36).toUpperCase()}-${nanoid(5).toUpperCase()}`;
     let proofBytes: Buffer;
     let identityDocumentBytes: Buffer;
     try {
