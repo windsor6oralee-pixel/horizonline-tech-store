@@ -184,3 +184,10 @@
 - [x] Replace the targeted product image with an orange iPhone 17 Pro Max sticker asset.
 - [x] Add a new animated logo treatment to the targeted product-image area.
 - [x] Verify the visual result and save a checkpoint.
+
+## Full clone to «هواتف جديد»
+
+- [ ] Create an independent project named «هواتف جديد» from the current site.
+- [ ] Transfer all source files, Git history, schema, assets, settings, and implemented UI behavior without intentional changes.
+- [ ] Transfer available database records and reconfigure project-specific secrets safely.
+- [ ] Compare the source and clone, verify runtime and preview, and deliver the clone.

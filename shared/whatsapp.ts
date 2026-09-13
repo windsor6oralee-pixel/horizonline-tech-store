@@ -10,7 +10,7 @@ export type WhatsAppOrderDetails = {
 
 export function createWhatsAppOrderLink(details: WhatsAppOrderDetails): string {
   const message = [
-    "مرحباً Appl، أريد الحصول على معلومات دفع شام كاش عبر الوكيل.",
+    "مرحباً Horizonline Tech Store، أريد الحصول على معلومات دفع شام كاش عبر الوكيل.",
     `الاسم: ${details.customerName}`,
     `الهاتف المطلوب: ${details.productTitle}`,
     `قيمة الدفعة الأولى: $${details.downPaymentUsd}`,

@@ -24,7 +24,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       <aside className="fixed inset-y-0 right-0 z-20 hidden w-[278px] flex-col bg-[#071d32] px-5 py-7 text-white lg:flex">
         <div className="flex items-center gap-3 px-2">
           <div className="brand-mark">A</div>
-          <div><p className="text-lg font-extrabold tracking-tight">Appl</p><p className="text-xs text-[#a6becd]">إدارة المتجر</p></div>
+          <div><p className="text-lg font-extrabold tracking-tight">Horizonline Tech Store</p><p className="text-xs text-[#a6becd]">إدارة المتجر</p></div>
         </div>
         <nav className="mt-12 space-y-2">
           {menuItems.map(item => {
@@ -53,6 +53,6 @@ function AdminLogin() {
   const [password, setPassword] = useState("");
   const login = trpc.adminAuth.login.useMutation({ onSuccess: () => window.location.reload(), onError: error => toast.error(error.message || "تعذر تسجيل الدخول") });
   const submit = (event: FormEvent) => { event.preventDefault(); login.mutate({ username, password }); };
-  return <main className="min-h-screen grid place-items-center bg-[#f7fafb] px-4" dir="rtl"><section className="w-full max-w-md rounded-[30px] bg-white p-8 text-center shadow-xl shadow-slate-200/60"><div className="brand-mark mx-auto mb-6">A</div><h1 className="text-2xl font-extrabold text-[#071d32]">لوحة إدارة Appl</h1><p className="mt-3 text-sm leading-7 text-slate-500">سجّل الدخول لإدارة الطلبات وبيانات التوصيل.</p><form onSubmit={submit} className="mt-7 space-y-3 text-right"><label className="block text-xs font-bold text-slate-600">اسم المستخدم<input required autoComplete="username" value={username} onChange={event => setUsername(event.target.value)} className="form-field mt-2" /></label><label className="block text-xs font-bold text-slate-600">كلمة المرور<input required type="password" autoComplete="current-password" value={password} onChange={event => setPassword(event.target.value)} className="form-field mt-2" /></label><Button type="submit" disabled={login.isPending} className="button-dark mt-4 h-12 w-full rounded-xl">{login.isPending ? "جارٍ التحقق…" : "تسجيل الدخول"}</Button></form></section></main>;
+  return <main className="min-h-screen grid place-items-center bg-[#f7fafb] px-4" dir="rtl"><section className="w-full max-w-md rounded-[30px] bg-white p-8 text-center shadow-xl shadow-slate-200/60"><div className="brand-mark mx-auto mb-6">H</div><h1 className="text-2xl font-extrabold text-[#071d32]">لوحة إدارة Horizonline Tech Store</h1><p className="mt-3 text-sm leading-7 text-slate-500">سجّل الدخول لإدارة الطلبات وبيانات التوصيل.</p><form onSubmit={submit} className="mt-7 space-y-3 text-right"><label className="block text-xs font-bold text-slate-600">اسم المستخدم<input required autoComplete="username" value={username} onChange={event => setUsername(event.target.value)} className="form-field mt-2" /></label><label className="block text-xs font-bold text-slate-600">كلمة المرور<input required type="password" autoComplete="current-password" value={password} onChange={event => setPassword(event.target.value)} className="form-field mt-2" /></label><Button type="submit" disabled={login.isPending} className="button-dark mt-4 h-12 w-full rounded-xl">{login.isPending ? "جارٍ التحقق…" : "تسجيل الدخول"}</Button></form></section></main>;
 }
 

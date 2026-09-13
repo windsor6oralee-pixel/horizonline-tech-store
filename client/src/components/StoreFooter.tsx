@@ -7,8 +7,8 @@ export default function StoreFooter() {
         <div className="grid gap-10 md:grid-cols-[1.15fr_.85fr_.85fr]">
           <div>
             <div className="flex items-center gap-3 text-white">
-              <span className="brand-mark">A</span>
-              <span className="text-2xl font-extrabold">Appl</span>
+              <span className="brand-mark">H</span>
+              <span className="text-2xl font-extrabold">Horizonline Tech Store</span>
             </div>
             <p className="mt-4 max-w-md text-sm leading-8 text-[#a9bdcb]">
               أجهزة خلوية بالتقسيط دون فوائد، مع توصيل DHL مجاني إلى جميع المحافظات السورية.
@@ -38,7 +38,7 @@ export default function StoreFooter() {
           </div>
 
           <div>
-            <h2 className="text-sm font-extrabold text-white">خدمات Appl</h2>
+            <h2 className="text-sm font-extrabold text-white">خدمات Horizonline Tech Store</h2>
             <ul className="mt-5 space-y-3 text-sm text-[#a9bdcb]">
               <li>تقسيط مرن من 12 إلى 48 شهراً</li>
               <li>دفعة أولى تبدأ من 100$</li>
@@ -49,7 +49,7 @@ export default function StoreFooter() {
         </div>
 
         <div className="mt-10 border-t border-white/10 pt-5 text-center text-xs leading-6 text-[#8da5b5]">
-          <p>© 2026 Appl · أجهزة وتقسيط بلا فوائد · جميع الحقوق محفوظة</p>
+          <p>© 2026 Horizonline Tech Store · أجهزة وتقسيط بلا فوائد · جميع الحقوق محفوظة</p>
           <p className="mt-1">السجل التجاري: 81916 · مدينة حمص، سوريا</p>
         </div>
       </div>
