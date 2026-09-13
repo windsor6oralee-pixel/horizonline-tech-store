@@ -53,7 +53,7 @@ pnpm db:push
 في خدمة الموقع (وليس MySQL): **Settings → Networking → Generate Domain**.
 عندما يسأل عن الـ Port اكتب **8080** (Railway يمرر `PORT=8080` للتطبيق). إذا ظهر 502، فالمنفذ خاطئ — عدّله من أيقونة القلم بجانب الرابط.
 
-الرابط الحالي: https://horizonline-tech-store-production.up.railway.app
+الرابط الحالي: https://horizonline.up.railway.app
 
 ملاحظات:
 - المتغيرات تُضاف في خدمة الموقع `horizonline-tech-store`، وليس في خدمة MySQL (تعديل متغيرات MySQL يظهر تحذيراً ويجب إلغاؤه).
