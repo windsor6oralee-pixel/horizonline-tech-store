@@ -1,4 +1,5 @@
-import { MapPin, ShieldCheck, Smartphone } from "lucide-react";
+import { MapPin, MessageCircle, ShieldCheck, Smartphone } from "lucide-react";
+import { WHATSAPP_BUSINESS_LINK, WHATSAPP_DISPLAY_NUMBER, WHATSAPP_HANDLE } from "@shared/whatsapp";
 import { BrandLockup } from "@/components/BrandLogo";
 
 export default function StoreFooter() {
@@ -31,6 +32,12 @@ export default function StoreFooter() {
                   <MapPin className="h-4 w-4" />
                 </span>
                 <span><b className="block text-[#e8f3f2]">العنوان</b>الشارع الرئيسي، دخلة الرينبو، مقابل مطعم الخال، الغوطة، مدينة حمص</span>
+              </p>
+              <p className="flex items-start gap-3">
+                <span className="mt-1 grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[#8ad9e3]/10 text-[#8ad9e3]">
+                  <MessageCircle className="h-4 w-4" />
+                </span>
+                <span><b className="block text-[#e8f3f2]">واتساب</b><a href={WHATSAPP_BUSINESS_LINK} target="_blank" rel="noopener noreferrer" className="font-mono text-[#8ad9e3] hover:underline" dir="ltr">{WHATSAPP_DISPLAY_NUMBER}</a><span className="block text-xs text-[#8da5b5]" dir="ltr">{WHATSAPP_HANDLE}</span></span>
               </p>
             </div>
           </div>

@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="400" viewBox="0 0 1200 400">
+<rect width="1200" height="400" fill="#0a2342"/>
+<g transform="translate(80,60) scale(2.8)">
+<rect x="15" y="15" width="70" height="70" rx="17" stroke="#8ad9e3" stroke-width="6" fill="none"/>
+<rect x="36" y="30" width="9" height="40" fill="#8ad9e3"/><rect x="55" y="30" width="9" height="40" fill="#8ad9e3"/>
+<path d="M1 52.5C30 46.5 70 45 99 48.5C70 51.5 30 53.5 1 52.5Z" fill="#8ad9e3"/></g>
+<text x="400" y="205" font-family="Montserrat, Arial, sans-serif" font-weight="800" font-size="96" letter-spacing="12" fill="#ffffff">HORIZONLINE</text>
+<text x="404" y="270" font-family="Montserrat, Arial, sans-serif" font-weight="600" font-size="40" letter-spacing="22" fill="#8ad9e3">TECH STORE</text>
+</svg>
