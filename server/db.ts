@@ -2,6 +2,8 @@ import { desc, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import { IncompleteCheckoutLead, InsertIncompleteCheckoutLead, InsertInstallmentOrder, InsertUser, incompleteCheckoutLeads, installmentOrders, storeSettings, users } from "../drizzle/schema";
 import { ENV } from './_core/env';
+import { migrate } from "drizzle-orm/mysql2/migrator";
+import path from "path";
 
 let _db: ReturnType<typeof drizzle> | null = null;
 
@@ -161,4 +163,13 @@ export async function setStoreSetting(key: string, value: string): Promise<void>
     console.error("[Settings] write failed:", error);
     throw new Error("تعذر حفظ الإعداد — تأكد من تشغيل pnpm db:push على الخادم");
   }
+}
+
+/** Applies pending SQL migrations from ./drizzle so a fresh database gets its tables on boot. */
+export async function runMigrations(): Promise<void> {
+  const db = await getDb();
+  if (!db) { console.warn("[Database] DATABASE_URL not set; skipping migrations"); return; }
+  const migrationsFolder = path.resolve(process.cwd(), "drizzle");
+  await migrate(db, { migrationsFolder });
+  console.log("[Database] Migrations up to date");
 }
