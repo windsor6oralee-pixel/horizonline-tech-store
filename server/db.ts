@@ -198,5 +198,5 @@ export async function listTables(): Promise<string[]> {
   const db = await getDb();
   if (!db) return [];
   const [rows] = await db.execute(sql`SHOW TABLES`);
-  return (rows as Record<string, unknown>[]).map(row => String(Object.values(row)[0]));
+  return (rows as unknown as Record<string, unknown>[]).map(row => String(Object.values(row)[0]));
 }
