@@ -1,6 +1,6 @@
 import { SHAM_CASH_WHATSAPP_NUMBER, WHATSAPP_SETTING_KEY, isValidWhatsAppNumber, normalizeWhatsAppNumber } from "@shared/whatsapp";
 import { z } from "zod";
-import { getStoreSetting, setStoreSetting } from "../db";
+import { getStoreSetting, listTables, migrationState, setStoreSetting } from "../db";
 import { adminProcedure, publicProcedure, router } from "../_core/trpc";
 
 export async function resolveWhatsAppNumber(): Promise<string> {
@@ -8,6 +8,11 @@ export async function resolveWhatsAppNumber(): Promise<string> {
 }
 
 export const settingsRouter = router({
+  dbStatus: adminProcedure.query(async () => {
+    let tables: string[] = []; let tablesError: string | null = null;
+    try { tables = await listTables(); } catch (error) { tablesError = (error as Error).message; }
+    return { migration: migrationState, tables, tablesError, cwd: process.cwd(), hasDatabaseUrl: Boolean(process.env.DATABASE_URL) };
+  }),
   public: publicProcedure.query(async () => ({ whatsappNumber: await resolveWhatsAppNumber() })),
   updateWhatsApp: adminProcedure
     .input(z.object({ whatsappNumber: z.string().trim().min(1).max(32) }))

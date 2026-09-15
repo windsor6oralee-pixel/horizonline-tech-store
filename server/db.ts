@@ -1,4 +1,4 @@
-import { desc, eq } from "drizzle-orm";
+import { desc, eq, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import { IncompleteCheckoutLead, InsertIncompleteCheckoutLead, InsertInstallmentOrder, InsertUser, incompleteCheckoutLeads, installmentOrders, storeSettings, users } from "../drizzle/schema";
 import { ENV } from './_core/env';
@@ -166,10 +166,37 @@ export async function setStoreSetting(key: string, value: string): Promise<void>
 }
 
 /** Applies pending SQL migrations from ./drizzle so a fresh database gets its tables on boot. */
+export const migrationState: { status: "pending" | "ok" | "skipped" | "failed"; error: string | null; folder: string } = { status: "pending", error: null, folder: "" };
+
+function describeError(error: unknown): string {
+  const parts: string[] = [];
+  let current: unknown = error;
+  for (let depth = 0; current && depth < 4; depth++) {
+    const e = current as { message?: string; code?: string; cause?: unknown };
+    parts.push([e.code, e.message].filter(Boolean).join(" "));
+    current = e.cause;
+  }
+  return parts.join(" <- ");
+}
+
 export async function runMigrations(): Promise<void> {
   const db = await getDb();
-  if (!db) { console.warn("[Database] DATABASE_URL not set; skipping migrations"); return; }
+  if (!db) { migrationState.status = "skipped"; console.warn("[Database] DATABASE_URL not set; skipping migrations"); return; }
   const migrationsFolder = path.resolve(process.cwd(), "drizzle");
-  await migrate(db, { migrationsFolder });
-  console.log("[Database] Migrations up to date");
+  migrationState.folder = migrationsFolder;
+  try {
+    await migrate(db, { migrationsFolder });
+    migrationState.status = "ok"; migrationState.error = null;
+    console.log("[Database] Migrations up to date");
+  } catch (error) {
+    migrationState.status = "failed"; migrationState.error = describeError(error);
+    console.error("[Database] Migration failed:", migrationState.error);
+  }
+}
+
+export async function listTables(): Promise<string[]> {
+  const db = await getDb();
+  if (!db) return [];
+  const [rows] = await db.execute(sql`SHOW TABLES`);
+  return (rows as Record<string, unknown>[]).map(row => String(Object.values(row)[0]));
 }
