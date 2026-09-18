@@ -255,11 +255,12 @@ body { font-family: "Cairo", sans-serif; direction: rtl; background: #f6f9fc; co
 @keyframes whatsapp-fab-ping { 0% { opacity: .45; transform: scale(1); } 70%, 100% { opacity: 0; transform: scale(1.7); } }
 /* Payment policy notice: motion only draws the eye; every element is fully readable without it. */
 .policy-notice { animation: policy-glow 2.8s ease-in-out 3; }
-.policy-alert { animation: policy-alert 2.6s ease-in-out infinite; transform-origin: center; }
+
+.policy-shield { animation: policy-alert 3.4s ease-in-out infinite; transform-origin: center; }
 .cod-note { animation: cod-note 4s ease-in-out infinite; }
 .cod-ban { animation: cod-ban 4s ease-in-out infinite; transform-origin: center; transform-box: fill-box; }
-@keyframes policy-glow { 0%, 100% { box-shadow: 0 0 0 0 rgba(196,144,31,0); } 50% { box-shadow: 0 0 0 6px rgba(196,144,31,.16); } }
-@keyframes policy-alert { 0%, 66%, 100% { transform: scale(1) rotate(0); } 74% { transform: scale(1.2) rotate(-8deg); } 82% { transform: scale(1.2) rotate(8deg); } 90% { transform: scale(1.08) rotate(0); } }
+@keyframes policy-glow { 0%, 100% { box-shadow: 0 0 0 0 rgba(138,217,227,0); } 50% { box-shadow: 0 0 0 6px rgba(138,217,227,.3); } }
+@keyframes policy-alert { 0%, 70%, 100% { transform: scale(1); } 80% { transform: scale(1.22); } 90% { transform: scale(1.06); } }
 @keyframes cod-note { 0%, 100% { transform: translateX(0); } 22% { transform: translateX(-7px); } 34% { transform: translateX(-3px); } 46% { transform: translateX(-7px); } 62% { transform: translateX(2px); } }
 @keyframes cod-ban { 0%, 18% { opacity: .2; transform: scale(.55); } 34% { opacity: 1; transform: scale(1.18); } 44%, 100% { opacity: 1; transform: scale(1); } }
 /* Delivery-rule illustrations. Motion is additive: each drawing is complete without it. */
