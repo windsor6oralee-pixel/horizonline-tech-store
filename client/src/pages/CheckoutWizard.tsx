@@ -1,6 +1,7 @@
 import { IDENTITY_DOCUMENT_TYPES, INSTALLMENT_MONTHS, JOB_NATURE_OPTIONS, SYRIA_DELIVERY_AREAS, SYRIAN_POUND_PER_USD } from "@shared/storeConstants";
 import type { Product } from "@shared/commerce/types";
 import { createWhatsAppOrderLink } from "@shared/whatsapp";
+import { digitsOnly, phoneDigits } from "@shared/text";
 import { ArrowLeft, ArrowRight, BadgeCheck, Check, CheckCircle2, CreditCard, FileUp, Gift, IdCard, Image, Info, LockKeyhole, Loader2, PackageCheck, ShieldCheck, Smartphone, Truck, WalletCards, X, Zap } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -62,8 +63,12 @@ export default function CheckoutWizard({ product, cartId, onBack }: { product: S
   }, [assessment]);
 
   const checkEligibility = () => {
-    if (!eligibility.fullName.trim() || !eligibility.age || !eligibility.jobNature) return toast.error("أكمل الاسم والعمر وطبيعة العمل أولاً");
-    if (Number(eligibility.age) < 18) return toast.error("التقسيط متاح لمن هم فوق 18 عاماً");
+    if (eligibility.fullName.trim().length < 3) return toast.error("اكتب اسمك الكامل (3 أحرف على الأقل)");
+    const age = Number(digitsOnly(eligibility.age));
+    if (!eligibility.age) return toast.error("أدخل عمرك بالأرقام");
+    if (age < 18) return toast.error("التقسيط متاح لمن هم فوق 18 عاماً");
+    if (age > 80) return toast.error("تحقق من العمر المدخل");
+    if (!eligibility.jobNature) return toast.error("اختر طبيعة العمل من القائمة");
     if (!eligibility.identityDocument) return toast.error("أرفق وثيقة هوية صالحة للمتابعة");
     setSeconds(8); setAssessment("loading");
   };
@@ -142,7 +147,12 @@ function Buttons({ next, onNext, onBack, disabled }: { next: string; onNext: () 
     <button disabled={disabled} onClick={onNext} className="button-dark h-13 rounded-2xl px-6 text-sm disabled:opacity-60">{next}<ArrowLeft className="mr-2 inline h-4 w-4" /></button>
   </div>;
 }
-function Field({ label, value, change, placeholder, type = "text" }: { label: string; value: string; change: (value: string) => void; placeholder: string; type?: string }) { return <label><span className="form-label">{label}</span><input className="form-field" value={value} type={type} placeholder={placeholder} onChange={event => change(event.target.value)} /></label>; }
+function Field({ label, value, change, placeholder, type = "text" }: { label: string; value: string; change: (value: string) => void; placeholder: string; type?: string }) {
+  // Arabic keyboards emit Arabic-Indic digits, which <input type="number"> silently rejects; normalise instead.
+  const numeric = type === "number"; const tel = type === "tel";
+  const normalise = (raw: string) => numeric ? digitsOnly(raw) : tel ? phoneDigits(raw) : raw;
+  return <label><span className="form-label">{label}</span><input className="form-field" value={value} type={numeric ? "text" : type} inputMode={numeric ? "numeric" : tel ? "tel" : undefined} dir={numeric || tel ? "ltr" : undefined} placeholder={placeholder} onChange={event => change(normalise(event.target.value))} /></label>;
+}
 function Select({ label, value, change, placeholder, options, disabled }: { label: string; value: string; change: (value: string) => void; placeholder: string; options: string[]; disabled?: boolean }) { return <label><span className="form-label">{label}</span><select disabled={disabled} className="form-field disabled:bg-slate-50 disabled:text-slate-400" value={value} onChange={event => change(event.target.value)}><option value="">{placeholder}</option>{options.map(option => <option key={option} value={option}>{option}</option>)}</select></label>; }
 function PlanChoice({ current, title, text, click, gold }: { current: boolean; title: string; text: string; click: () => void; gold?: boolean }) { return <button onClick={click} className={`relative rounded-2xl border p-4 text-right ${current ? "border-[#4cc4b8] bg-[#edf7fc]" : "border-slate-200 hover:border-[#9eddd6]"}`}><b className="font-mono text-xl text-[#0a2342]">{title}</b><small className="mt-1 block text-xs text-slate-500">{text}</small>{gold && <span className="absolute left-3 top-3 rounded-full bg-[#f6b94f] px-2 py-1 text-[9px] font-extrabold text-[#0a2342]">أفضل قيمة</span>}{current && <CheckCircle2 className="absolute bottom-4 left-4 h-5 w-5 text-[#159c67]" />}</button>; }
 function SummaryLine({ label, value, success }: { label: string; value: string; success?: boolean }) { return <div className="mt-3 flex justify-between gap-4 text-xs"><span className="text-[#c9d7e1]">{label}</span><span className={`text-left font-bold ${success ? "text-[#8ad9e3]" : "text-white"}`}>{value}</span></div>; }
