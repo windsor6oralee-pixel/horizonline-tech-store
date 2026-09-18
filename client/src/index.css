@@ -276,6 +276,13 @@ body { font-family: "Cairo", sans-serif; direction: rtl; background: #f6f9fc; co
 @keyframes sign-pen { 0%, 12% { transform: translate(6px, -4px); } 52%, 100% { transform: translate(0, 0); } }
 @keyframes prepaid-note { 0%, 15% { transform: translateY(-6px); opacity: .35; } 45%, 100% { transform: translateY(0); opacity: 1; } }
 @keyframes prepaid-dot { 0%, 45% { opacity: 0; transform: scale(.4); } 60% { opacity: 1; transform: scale(1.35); } 70%, 100% { opacity: 1; transform: scale(1); } }
+/* Post-order timeline. No fill mode: the finished, readable state is the default. */
+.next-steps { animation: next-steps-in .5s ease-out; }
+.next-steps-line { transform-origin: top; animation: next-steps-line .9s ease-out; }
+.next-step-soon { animation: next-step-soon 2.6s ease-in-out infinite; }
+@keyframes next-steps-in { from { opacity: 0; transform: translateY(10px); } }
+@keyframes next-steps-line { from { transform: scaleY(0); } }
+@keyframes next-step-soon { 0%, 65%, 100% { box-shadow: 0 0 0 0 rgba(138,217,227,.75); } 32% { box-shadow: 0 0 0 9px rgba(138,217,227,0); } }
 @keyframes spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; scroll-behavior: auto !important; } }
 
