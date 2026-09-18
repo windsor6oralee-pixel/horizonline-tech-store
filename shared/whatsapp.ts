@@ -54,3 +54,11 @@ export function createWhatsAppInquiryLink(details: WhatsAppOrderDetails, number:
 
   return `${whatsAppChatLink(number)}?text=${encodeURIComponent(message)}`;
 }
+
+/** Converts a locally written number (e.g. 0992839738) into wa.me digits. Defaults to Syria. */
+export function toInternationalDigits(phone: string, countryCode = "963"): string {
+  const digits = normalizeWhatsAppNumber(phone);
+  if (!digits) return "";
+  if (digits.startsWith(countryCode)) return digits;
+  return countryCode + digits.replace(/^0+/, "");
+}

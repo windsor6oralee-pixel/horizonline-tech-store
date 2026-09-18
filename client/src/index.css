@@ -262,6 +262,19 @@ body { font-family: "Cairo", sans-serif; direction: rtl; background: #f6f9fc; co
 @keyframes policy-alert { 0%, 66%, 100% { transform: scale(1) rotate(0); } 74% { transform: scale(1.2) rotate(-8deg); } 82% { transform: scale(1.2) rotate(8deg); } 90% { transform: scale(1.08) rotate(0); } }
 @keyframes cod-note { 0%, 100% { transform: translateX(0); } 22% { transform: translateX(-7px); } 34% { transform: translateX(-3px); } 46% { transform: translateX(-7px); } 62% { transform: translateX(2px); } }
 @keyframes cod-ban { 0%, 18% { opacity: .2; transform: scale(.55); } 34% { opacity: 1; transform: scale(1.18); } 44%, 100% { opacity: 1; transform: scale(1); } }
+/* Delivery-rule illustrations. Motion is additive: each drawing is complete without it. */
+.id-card { animation: id-card 5s ease-in-out infinite; transform-origin: center; transform-box: fill-box; }
+.id-check { animation: id-check 5s ease-in-out infinite; transform-origin: center; transform-box: fill-box; }
+.sign-stroke { stroke-dasharray: 46; animation: sign-draw 5s ease-in-out infinite; }
+.sign-pen { animation: sign-pen 5s ease-in-out infinite; }
+.prepaid-note { animation: prepaid-note 4.5s ease-in-out infinite; }
+.prepaid-dot { animation: prepaid-dot 4.5s ease-in-out infinite; transform-origin: center; transform-box: fill-box; }
+@keyframes id-card { 0%, 100% { transform: translateY(0) rotate(0); } 40% { transform: translateY(-2px) rotate(-2deg); } 70% { transform: translateY(0) rotate(0); } }
+@keyframes id-check { 0%, 30% { opacity: .15; transform: scale(.5); } 46% { opacity: 1; transform: scale(1.2); } 56%, 100% { opacity: 1; transform: scale(1); } }
+@keyframes sign-draw { 0%, 12% { stroke-dashoffset: 46; } 52%, 100% { stroke-dashoffset: 0; } }
+@keyframes sign-pen { 0%, 12% { transform: translate(6px, -4px); } 52%, 100% { transform: translate(0, 0); } }
+@keyframes prepaid-note { 0%, 15% { transform: translateY(-6px); opacity: .35; } 45%, 100% { transform: translateY(0); opacity: 1; } }
+@keyframes prepaid-dot { 0%, 45% { opacity: 0; transform: scale(.4); } 60% { opacity: 1; transform: scale(1.35); } 70%, 100% { opacity: 1; transform: scale(1); } }
 @keyframes spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; scroll-behavior: auto !important; } }
 
