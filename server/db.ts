@@ -1,6 +1,6 @@
 import { desc, eq, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { IncompleteCheckoutLead, InsertIncompleteCheckoutLead, InsertInstallmentOrder, InsertUser, incompleteCheckoutLeads, installmentOrders, storeSettings, users } from "../drizzle/schema";
+import { IncompleteCheckoutLead, InsertIncompleteCheckoutLead, InsertInstallmentOrder, InsertUser, incompleteCheckoutLeads, installmentOrders, storeSettings, storedFiles, users } from "../drizzle/schema";
 import { ENV } from './_core/env';
 import { migrate } from "drizzle-orm/mysql2/migrator";
 import path from "path";
@@ -199,4 +199,17 @@ export async function listTables(): Promise<string[]> {
   if (!db) return [];
   const [rows] = await db.execute(sql`SHOW TABLES`);
   return (rows as unknown as Record<string, unknown>[]).map(row => String(Object.values(row)[0]));
+}
+
+export async function saveStoredFile(file: { key: string; name: string; mimeType: string; data: Buffer }): Promise<void> {
+  const db = await getDb();
+  if (!db) throw new Error("قاعدة البيانات غير متصلة");
+  await db.insert(storedFiles).values({ ...file, size: file.data.length });
+}
+
+export async function getStoredFile(key: string) {
+  const db = await getDb();
+  if (!db) return null;
+  const rows = await db.select().from(storedFiles).where(eq(storedFiles.key, key)).limit(1);
+  return rows[0] ?? null;
 }

@@ -1,4 +1,6 @@
-import { decimal, int, mysqlEnum, mysqlTable, text, timestamp, varchar } from "drizzle-orm/mysql-core";
+import { customType, decimal, int, mysqlEnum, mysqlTable, text, timestamp, varchar } from "drizzle-orm/mysql-core";
+
+const longblob = customType<{ data: Buffer; driverData: Buffer }>({ dataType() { return "longblob"; } });
 
 /**
  * Core user table backing auth flow.
@@ -96,3 +98,15 @@ export const incompleteCheckoutLeads = mysqlTable("incompleteCheckoutLeads", {
 
 export type IncompleteCheckoutLead = typeof incompleteCheckoutLeads.$inferSelect;
 export type InsertIncompleteCheckoutLead = typeof incompleteCheckoutLeads.$inferInsert;
+
+/** Customer uploads (identity documents, payment proofs). Served to admins only via /api/files/<key>. */
+export const storedFiles = mysqlTable("storedFiles", {
+  id: int("id").autoincrement().primaryKey(),
+  key: varchar("key", { length: 512 }).notNull().unique(),
+  name: varchar("name", { length: 255 }).notNull(),
+  mimeType: varchar("mimeType", { length: 120 }).notNull(),
+  size: int("size").notNull(),
+  data: longblob("data").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type StoredFile = typeof storedFiles.$inferSelect;

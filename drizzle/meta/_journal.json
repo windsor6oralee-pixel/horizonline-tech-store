@@ -50,6 +50,13 @@
       "when": 1789339163150,
       "tag": "0006_equal_ironclad",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "5",
+      "when": 1789720516792,
+      "tag": "0007_oval_phalanx",
+      "breakpoints": true
     }
   ]
 }
