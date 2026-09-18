@@ -6,7 +6,7 @@ const STORAGE_KEY = "hz_visit_id";
 let cachedId: string | null = null;
 
 /** Random per-visit id. Never leaves the browser except as an opaque string; no personal data. */
-function visitId(): string {
+export function visitId(): string {
   if (cachedId) return cachedId;
   try {
     const existing = sessionStorage.getItem(STORAGE_KEY);

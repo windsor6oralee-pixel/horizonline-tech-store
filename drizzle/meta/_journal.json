@@ -64,6 +64,13 @@
       "when": 1789724704225,
       "tag": "0008_green_goliath",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "5",
+      "when": 1789749854833,
+      "tag": "0009_hot_molecule_man",
+      "breakpoints": true
     }
   ]
 }

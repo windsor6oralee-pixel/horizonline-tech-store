@@ -1,7 +1,7 @@
 import { nanoid } from "nanoid";
 import { z } from "zod";
 import { IDENTITY_DOCUMENT_TYPES, JOB_NATURE_OPTIONS } from "../../shared/storeConstants";
-import { createIncompleteCheckoutLead, createInstallmentOrder, getIncompleteCheckoutLeads, getInstallmentOrders, reviewInstallmentPaymentProof, updateIncompleteCheckoutLeadStatus, updateInstallmentOrderStatus } from "../db";
+import { createIncompleteCheckoutLead, createInstallmentOrder, recordWhatsAppContact, getIncompleteCheckoutLeads, getInstallmentOrders, reviewInstallmentPaymentProof, updateIncompleteCheckoutLeadStatus, updateInstallmentOrderStatus } from "../db";
 import { calculateInstallmentPlan } from "../installment";
 import { adminProcedure, publicProcedure, router } from "../_core/trpc";
 import { storageGetSignedUrl, storagePut } from "../storage";
@@ -156,6 +156,34 @@ export const ordersRouter = router({
     });
     return { success: true } as const;
   }),
+
+  /** Called when a customer opens WhatsApp, so the chat still shows up as a follow-up in the panel. */
+  logWhatsAppContact: publicProcedure
+    .input(z.object({
+      sessionId: z.string().trim().min(6).max(64),
+      productTitle: z.string().trim().min(2).max(255),
+      productHandle: z.string().trim().max(255).optional(),
+      customerName: z.string().trim().max(160).optional(),
+      phone: z.string().trim().max(32).optional(),
+      province: z.string().trim().max(80).optional(),
+      downPaymentUsd: z.union([z.literal(100), z.literal(150), z.literal(300)]),
+      months: z.number().int().min(12).max(48),
+      checkoutStep: z.enum(["payment", "delivery", "eligibility"]),
+    }))
+    .mutation(async ({ input }) => {
+      await recordWhatsAppContact({
+        sessionId: input.sessionId,
+        productTitle: input.productTitle,
+        productHandle: input.productHandle ?? null,
+        customerName: input.customerName?.trim() || "زائر عبر واتساب",
+        phone: input.phone?.trim() || null,
+        province: input.province?.trim() || null,
+        downPaymentUsd: input.downPaymentUsd.toFixed(2),
+        months: input.months,
+        checkoutStep: input.checkoutStep,
+      });
+      return { success: true } as const;
+    }),
 
   incompleteList: adminProcedure.query(async () => getIncompleteCheckoutLeads()),
 

@@ -85,13 +85,18 @@ export const incompleteCheckoutLeads = mysqlTable("incompleteCheckoutLeads", {
   productTitle: varchar("productTitle", { length: 255 }).notNull(),
   productHandle: varchar("productHandle", { length: 255 }),
   customerName: varchar("customerName", { length: 160 }).notNull(),
-  phone: varchar("phone", { length: 32 }).notNull(),
-  province: varchar("province", { length: 80 }).notNull(),
+  /** Null for WhatsApp contacts: the customer writes from their own number before reaching the delivery form. */
+  phone: varchar("phone", { length: 32 }),
+  province: varchar("province", { length: 80 }),
   downPaymentUsd: decimal("downPaymentUsd", { precision: 10, scale: 2 }).notNull(),
   months: int("months").notNull(),
   checkoutStep: mysqlEnum("checkoutStep", ["payment", "delivery", "eligibility"]).default("payment").notNull(),
   status: mysqlEnum("status", ["new", "contacted", "converted", "closed"]).default("new").notNull(),
-  consentAt: timestamp("consentAt").notNull(),
+  /** "whatsapp" rows are logged when the customer opens a chat instead of finishing the form. */
+  source: mysqlEnum("source", ["form", "whatsapp"]).default("form").notNull(),
+  /** Browsing session, used to keep repeated WhatsApp clicks as a single follow-up. */
+  sessionId: varchar("sessionId", { length: 64 }),
+  consentAt: timestamp("consentAt"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });

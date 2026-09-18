@@ -1,4 +1,4 @@
-import { desc, eq, gte, sql } from "drizzle-orm";
+import { and, desc, eq, gte, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import { IncompleteCheckoutLead, InsertIncompleteCheckoutLead, InsertInstallmentOrder, InsertUser, incompleteCheckoutLeads, installmentOrders, storeSettings, storedFiles, users, visitorSessions } from "../drizzle/schema";
 import { ENV } from './_core/env';
@@ -260,4 +260,30 @@ export async function getVisitorStats() {
   const byDevice: Record<string, number> = {};
   for (const row of devices) byDevice[row.device] = Number(row.total);
   return { todaySessions, byStage, byDevice, weekSessions: Number(weekRows[0]?.total ?? 0) };
+}
+
+/** Logs a WhatsApp chat as a follow-up. Repeated clicks in the same session update one row instead of piling up. */
+export async function recordWhatsAppContact(contact: {
+  sessionId: string;
+  productTitle: string;
+  productHandle: string | null;
+  customerName: string;
+  phone: string | null;
+  province: string | null;
+  downPaymentUsd: string;
+  months: number;
+  checkoutStep: "payment" | "delivery" | "eligibility";
+}): Promise<void> {
+  const db = await getDb();
+  if (!db) throw new Error("قاعدة البيانات غير متاحة حالياً");
+  const existing = await db.select({ id: incompleteCheckoutLeads.id })
+    .from(incompleteCheckoutLeads)
+    .where(and(eq(incompleteCheckoutLeads.sessionId, contact.sessionId), eq(incompleteCheckoutLeads.source, "whatsapp")))
+    .limit(1);
+  const row = { ...contact, source: "whatsapp" as const };
+  if (existing[0]) {
+    await db.update(incompleteCheckoutLeads).set(row).where(eq(incompleteCheckoutLeads.id, existing[0].id));
+    return;
+  }
+  await db.insert(incompleteCheckoutLeads).values({ ...row, status: "new", consentAt: null });
 }

@@ -8,10 +8,11 @@ function WhatsAppGlyph({ className = "" }: { className?: string }) {
  * Floating WhatsApp button, shown to a customer once they are pre-qualified.
  * Entry animation is CSS-only: the button stays visible even if animations never run.
  */
-export default function WhatsAppFab({ href, label = "تواصل معنا عبر واتساب" }: { href: string; label?: string }) {
+export default function WhatsAppFab({ href, label = "تواصل معنا عبر واتساب", onContact }: { href: string; label?: string; onContact?: () => void }) {
   return (
     <a
       href={href}
+      onClick={onContact}
       target="_blank"
       rel="noopener noreferrer"
       aria-label={label}
