@@ -248,6 +248,11 @@ body { font-family: "Cairo", sans-serif; direction: rtl; background: #f6f9fc; co
 @keyframes gift-glow { 0%, 100% { transform: scale(.8); opacity: .35; } 50% { transform: scale(1.15); opacity: .75; } }
 @keyframes gift-twinkle { 0%, 100% { transform: scale(.72) rotate(0); opacity: .28; } 50% { transform: scale(1.12) rotate(18deg); opacity: 1; } }
 @media (max-width: 480px) { .gift-celebration { margin-top: 14px; padding: 20px 12px 13px; }.gift-mark { width: 80px; height: 80px; border-radius: 26px; }.gift-mark svg { width: 48px; height: 48px; }.gift-choice { grid-template-columns: 29px 1fr 51px; min-height: 76px; gap: 10px; padding: 11px 13px; }.gift-choice-selected { padding: 10px 12px; }.gift-choice-icon { width: 51px; height: 51px; border-radius: 15px; }.gift-choice-icon svg { width: 24px; height: 24px; }.gift-choice-copy b { font-size: .92rem; }.gift-step-kicker { font-size: .68rem; } }
+/* No fill mode: the button's resting style is fully visible, so it can never be left hidden by a stalled animation. */
+.whatsapp-fab { animation: whatsapp-fab-in .45s cubic-bezier(.22,.9,.32,1.25); }
+.whatsapp-fab-ring { animation: whatsapp-fab-ping 2.4s cubic-bezier(0,0,.2,1) infinite; }
+@keyframes whatsapp-fab-in { from { opacity: 0; transform: translateY(14px) scale(.7); } to { opacity: 1; transform: none; } }
+@keyframes whatsapp-fab-ping { 0% { opacity: .45; transform: scale(1); } 70%, 100% { opacity: 0; transform: scale(1.7); } }
 @keyframes spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; scroll-behavior: auto !important; } }
 

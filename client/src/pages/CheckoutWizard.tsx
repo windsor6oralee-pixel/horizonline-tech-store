@@ -1,6 +1,6 @@
 import { IDENTITY_DOCUMENT_TYPES, INSTALLMENT_MONTHS, JOB_NATURE_OPTIONS, SYRIA_DELIVERY_AREAS, SYRIAN_POUND_PER_USD } from "@shared/storeConstants";
 import type { Product } from "@shared/commerce/types";
-import { createWhatsAppOrderLink } from "@shared/whatsapp";
+import { createWhatsAppInquiryLink, createWhatsAppOrderLink } from "@shared/whatsapp";
 import { digitsOnly, phoneDigits } from "@shared/text";
 import { type PresenceStepKey } from "@shared/presence";
 import { usePresence } from "@/hooks/usePresence";
@@ -9,6 +9,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
 import StoreFooter from "@/components/StoreFooter";
+import WhatsAppFab from "@/components/WhatsAppFab";
 import { BrandLockup } from "@/components/BrandLogo";
 
 export type SelectedProduct = Product & { demo?: boolean; minDownPayment?: 100 | 150 | 300 };
@@ -52,6 +53,13 @@ export default function CheckoutWizard({ product, cartId, onBack }: { product: S
   const monthly = Math.max(0, price - discount - downPayment) / months;
   const index = step === "done" ? 5 : ["gift", "plan", "eligibility", "delivery", "payment"].indexOf(step);
   usePresence(`checkout:${step}` as PresenceStepKey, product.title);
+  const { data: storeSettings } = trpc.settings.public.useQuery(undefined, { retry: false, staleTime: 60_000 });
+  // Once the customer is pre-qualified, keep a direct line to the store open for the rest of the flow.
+  const preQualified = assessment === "eligible";
+  const chatLink = createWhatsAppInquiryLink(
+    { customerName: eligibility.fullName, productTitle: product.title, downPaymentUsd: downPayment, months, monthlyInstallmentUsd: monthly },
+    storeSettings?.whatsappNumber,
+  );
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -89,6 +97,7 @@ export default function CheckoutWizard({ product, cartId, onBack }: { product: S
     <header className="border-b border-slate-200 bg-white"><div className="mx-auto flex h-[72px] max-w-6xl items-center justify-between px-5"><button onClick={onBack} className="flex items-center gap-2 text-sm font-extrabold text-slate-500 hover:text-[#0a2342]"><ArrowRight className="h-4 w-4" />العودة للمتجر</button><BrandLockup tone="onLight" size="md" /><span className="hidden items-center gap-2 text-xs font-bold text-[#1f6f96] sm:flex"><LockKeyhole className="h-4 w-4" />طلب آمن</span></div></header>
     <main className="mx-auto max-w-6xl px-5 py-8 sm:py-11"><div className="mb-8 flex flex-wrap justify-center gap-3">{steps.map((label, i) => <div key={label} className="flex items-center gap-2"><span className={`grid h-8 w-8 place-items-center rounded-full text-xs font-extrabold ${i < index || step === "done" ? "bg-[#159c67] text-white" : i === index ? "bg-[#8ad9e3] text-[#0a2342]" : "border border-slate-200 bg-white text-slate-400"}`}>{i < index || step === "done" ? <Check className="h-4 w-4" /> : i + 1}</span><span className={`text-xs font-bold ${i === index ? "text-[#0a2342]" : "text-slate-400"}`}>{label}</span></div>)}</div><div className="grid gap-7 lg:grid-cols-[1fr_330px] lg:items-start"><section key={step} className="checkout-step-panel rounded-[28px] border border-slate-200 bg-white p-5 sm:p-8">{step === "gift" && <GiftStep selected={gift} onSelect={setGift} next={() => setStep("plan")} />}{step === "plan" && <PlanStep price={price} minDownPayment={product.minDownPayment ?? 100} downPayment={downPayment} months={months} setDownPayment={setDownPayment} setMonths={setMonths} next={() => setStep("eligibility")} back={() => setStep("gift")} />}{step === "eligibility" && <EligibilityStep values={eligibility} setValues={setEligibility} state={assessment} seconds={seconds} start={checkEligibility} next={() => setStep("delivery")} back={() => setStep("plan")} />}{step === "delivery" && <DeliveryStep values={delivery} setValues={setDelivery} next={goDelivery} back={() => setStep("eligibility")} />}{step === "payment" && <PaymentStep confirm={completeOrder} back={() => setStep("delivery")} busy={submit.isPending} productTitle={product.title} productHandle={product.handle} customerName={eligibility.fullName} phone={delivery.phone} province={delivery.province} downPayment={downPayment} months={months} monthly={monthly} />}{step === "done" && <DoneStep orderNumber={orderNumber} product={product.title} monthly={monthly} months={months} downPayment={downPayment} delivery={delivery} back={onBack} />}</section><aside className="sticky top-5 rounded-[24px] bg-[#0a2342] p-5 text-white shadow-xl"><p className="text-xs font-bold text-[#8ad9e3]">ملخص الطلب</p><div className="mt-4 flex gap-3"><div className="grid h-16 w-16 place-items-center rounded-xl bg-white/10">{product.images[0]?.url ? <img className="h-14 w-12 object-contain mix-blend-screen" src={product.images[0].url} alt="" /> : <Smartphone className="text-[#8ad9e3]" />}</div><div><p className="font-extrabold leading-6">{product.title}</p><p className="mt-1 text-xs text-[#c9d7e1]">{product.description || "هاتف بالتقسيط"}</p></div></div><div className="my-5 border-t border-white/10" /><SummaryLine label="سعر الهاتف" value={`$${usd(price)}`} /><SummaryLine label="الهديّة" value={gift} /><SummaryLine label="التوصيل" value="DHL · مجاني" success /><div className="my-5 border-t border-white/10" /><SummaryLine label="الدفعة الأولى" value={`$${downPayment}`} /><SummaryLine label={downPayment > 100 ? "الخصم" : "الفوائد"} value={downPayment > 100 ? `−$${usd(discount)} (${downPayment === 300 ? "20%" : "10%"})` : "0%"} success /><div className="mt-5 rounded-xl bg-white/10 p-3"><p className="text-[11px] text-[#c9d7e1]">القسط الشهري · {months} شهراً</p><p className="font-mono mt-1 text-2xl font-bold text-[#8ad9e3]">${usd(monthly)}</p><p className="mt-1 text-[11px] text-[#c9d7e1]">{syp(monthly)} ل.س تقريباً</p></div></aside></div></main>
     <StoreFooter />
+    {preQualified && <WhatsAppFab href={chatLink} />}
   </div>;
 }
 
