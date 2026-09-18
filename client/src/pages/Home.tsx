@@ -8,6 +8,7 @@ import { useCart } from "@/contexts/CartContext";
 import { trpc } from "@/lib/trpc";
 import CheckoutWizard, { type SelectedProduct } from "./CheckoutWizard";
 import StoreFooter from "@/components/StoreFooter";
+import { usePresence } from "@/hooks/usePresence";
 import { BrandLockup } from "@/components/BrandLogo";
 
 type CatalogProduct = SelectedProduct & { demo?: boolean };
@@ -70,6 +71,8 @@ export default function Home() {
     const preview = new URLSearchParams(window.location.search).get("preview");
     return preview && preview !== "iphone17" ? demoProducts[0] : null;
   });
+  // CheckoutWizard reports its own step, so the storefront stays quiet while it is open.
+  usePresence(checkoutProduct ? null : details ? "product" : "home", details?.title ?? null);
   const products: CatalogProduct[] = liveProducts.length ? liveProducts : demoProducts;
   const filteredProducts = brand === "الكل" ? products : products.filter(product => brandOf(product) === brand);
 

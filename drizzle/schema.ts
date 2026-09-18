@@ -110,3 +110,17 @@ export const storedFiles = mysqlTable("storedFiles", {
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 export type StoredFile = typeof storedFiles.$inferSelect;
+
+/** One row per browsing session, for daily visitor stats. No personal data is stored. */
+export const visitorSessions = mysqlTable("visitorSessions", {
+  id: int("id").autoincrement().primaryKey(),
+  sessionId: varchar("sessionId", { length: 64 }).notNull().unique(),
+  device: mysqlEnum("device", ["mobile", "tablet", "desktop"]).notNull(),
+  lastView: varchar("lastView", { length: 64 }).notNull(),
+  /** Furthest funnel step reached, as an index into PRESENCE_STEPS. */
+  furthestStage: int("furthestStage").default(0).notNull(),
+  productTitle: varchar("productTitle", { length: 255 }),
+  firstSeen: timestamp("firstSeen").defaultNow().notNull(),
+  lastSeen: timestamp("lastSeen").defaultNow().onUpdateNow().notNull(),
+});
+export type VisitorSession = typeof visitorSessions.$inferSelect;

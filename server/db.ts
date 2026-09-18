@@ -1,6 +1,6 @@
-import { desc, eq, sql } from "drizzle-orm";
+import { desc, eq, gte, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { IncompleteCheckoutLead, InsertIncompleteCheckoutLead, InsertInstallmentOrder, InsertUser, incompleteCheckoutLeads, installmentOrders, storeSettings, storedFiles, users } from "../drizzle/schema";
+import { IncompleteCheckoutLead, InsertIncompleteCheckoutLead, InsertInstallmentOrder, InsertUser, incompleteCheckoutLeads, installmentOrders, storeSettings, storedFiles, users, visitorSessions } from "../drizzle/schema";
 import { ENV } from './_core/env';
 import { migrate } from "drizzle-orm/mysql2/migrator";
 import path from "path";
@@ -212,4 +212,52 @@ export async function getStoredFile(key: string) {
   if (!db) return null;
   const rows = await db.select().from(storedFiles).where(eq(storedFiles.key, key)).limit(1);
   return rows[0] ?? null;
+}
+
+/** Syria is UTC+3 all year, so "today" is computed against that offset rather than the server clock. */
+const SYRIA_OFFSET_MS = 3 * 60 * 60 * 1000;
+function startOfSyrianDay(daysAgo = 0): Date {
+  const local = new Date(Date.now() + SYRIA_OFFSET_MS);
+  local.setUTCHours(0, 0, 0, 0);
+  return new Date(local.getTime() - SYRIA_OFFSET_MS - daysAgo * 24 * 60 * 60 * 1000);
+}
+
+export async function recordVisitorSession(visit: {
+  sessionId: string;
+  device: "mobile" | "tablet" | "desktop";
+  lastView: string;
+  furthestStage: number;
+  productTitle: string | null;
+}): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await db.insert(visitorSessions).values(visit).onDuplicateKeyUpdate({
+    set: {
+      lastView: visit.lastView,
+      productTitle: visit.productTitle,
+      device: visit.device,
+      furthestStage: sql`GREATEST(${visitorSessions.furthestStage}, ${visit.furthestStage})`,
+      lastSeen: new Date(),
+    },
+  });
+}
+
+export async function getVisitorStats() {
+  const db = await getDb();
+  if (!db) return null;
+  const today = startOfSyrianDay();
+  const week = startOfSyrianDay(6);
+  const [stages, devices, weekRows] = await Promise.all([
+    db.select({ stage: visitorSessions.furthestStage, total: sql<number>`count(*)` })
+      .from(visitorSessions).where(gte(visitorSessions.firstSeen, today)).groupBy(visitorSessions.furthestStage),
+    db.select({ device: visitorSessions.device, total: sql<number>`count(*)` })
+      .from(visitorSessions).where(gte(visitorSessions.firstSeen, today)).groupBy(visitorSessions.device),
+    db.select({ total: sql<number>`count(*)` }).from(visitorSessions).where(gte(visitorSessions.firstSeen, week)),
+  ]);
+  const byStage: Record<number, number> = {};
+  let todaySessions = 0;
+  for (const row of stages) { const total = Number(row.total); byStage[row.stage] = total; todaySessions += total; }
+  const byDevice: Record<string, number> = {};
+  for (const row of devices) byDevice[row.device] = Number(row.total);
+  return { todaySessions, byStage, byDevice, weekSessions: Number(weekRows[0]?.total ?? 0) };
 }

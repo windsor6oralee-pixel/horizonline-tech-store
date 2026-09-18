@@ -2,6 +2,8 @@ import { IDENTITY_DOCUMENT_TYPES, INSTALLMENT_MONTHS, JOB_NATURE_OPTIONS, SYRIA_
 import type { Product } from "@shared/commerce/types";
 import { createWhatsAppOrderLink } from "@shared/whatsapp";
 import { digitsOnly, phoneDigits } from "@shared/text";
+import { type PresenceStepKey } from "@shared/presence";
+import { usePresence } from "@/hooks/usePresence";
 import { ArrowLeft, ArrowRight, BadgeCheck, Check, CheckCircle2, CreditCard, FileUp, Gift, IdCard, Image, Info, LockKeyhole, Loader2, PackageCheck, ShieldCheck, Smartphone, Truck, WalletCards, X, Zap } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -49,6 +51,7 @@ export default function CheckoutWizard({ product, cartId, onBack }: { product: S
   const discount = downPayment === 300 ? price * .2 : downPayment === 150 ? price * .1 : 0;
   const monthly = Math.max(0, price - discount - downPayment) / months;
   const index = step === "done" ? 5 : ["gift", "plan", "eligibility", "delivery", "payment"].indexOf(step);
+  usePresence(`checkout:${step}` as PresenceStepKey, product.title);
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });

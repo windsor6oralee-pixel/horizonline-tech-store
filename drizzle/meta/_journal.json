@@ -57,6 +57,13 @@
       "when": 1789720516792,
       "tag": "0007_oval_phalanx",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "5",
+      "when": 1789724704225,
+      "tag": "0008_green_goliath",
+      "breakpoints": true
     }
   ]
 }
