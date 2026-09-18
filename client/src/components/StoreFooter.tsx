@@ -48,6 +48,7 @@ export default function StoreFooter() {
           <div>
             <h2 className="text-sm font-extrabold text-white">خدمات Horizonline Tech Store</h2>
             <ul className="mt-5 space-y-3 text-sm text-[#a9bdcb]">
+              <li className="font-bold text-[#f0c987]">لا يوجد دفع عند الاستلام</li>
               <li>تقسيط مرن من 12 إلى 48 شهراً</li>
               <li>دفعة أولى تبدأ من 100$</li>
               <li>هدايا مجانية مع الأجهزة</li>

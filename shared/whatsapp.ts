@@ -1,3 +1,5 @@
+import { WHATSAPP_POLICY_LINE } from "./storePolicy";
+
 export const SHAM_CASH_WHATSAPP_NUMBER = "12727462228";
 export const WHATSAPP_HANDLE = "@horizonlinetech";
 export const WHATSAPP_SETTING_KEY = "whatsappNumber";
@@ -30,6 +32,7 @@ export function createWhatsAppOrderLink(details: WhatsAppOrderDetails, number: s
     `قيمة الدفعة الأولى: $${details.downPaymentUsd}`,
     `مدة التقسيط: ${details.months} شهراً`,
     `القسط الشهري التقريبي: $${details.monthlyInstallmentUsd.toFixed(2)}`,
+    WHATSAPP_POLICY_LINE,
     "أرغب بالدفع الآن، يرجى إرسال التعليمات.",
   ].join("\n");
 
@@ -46,6 +49,7 @@ export function createWhatsAppInquiryLink(details: WhatsAppOrderDetails, number:
     `الدفعة الأولى: $${details.downPaymentUsd}`,
     `مدة التقسيط: ${details.months} شهراً`,
     `القسط الشهري التقريبي: $${details.monthlyInstallmentUsd.toFixed(2)}`,
+    WHATSAPP_POLICY_LINE,
   ].filter(Boolean).join("\n");
 
   return `${whatsAppChatLink(number)}?text=${encodeURIComponent(message)}`;
