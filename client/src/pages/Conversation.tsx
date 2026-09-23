@@ -11,7 +11,7 @@ export default function Conversation() {
   const [, params] = useRoute("/t/:token");
   const token = params?.token ?? "";
   const utils = trpc.useUtils();
-  const { data, isLoading } = trpc.conversations.byToken.useQuery({ token }, { enabled: token.length === 32, refetchInterval: 20_000 });
+  const { data, isLoading } = trpc.conversations.byToken.useQuery({ token }, { enabled: token.length === 32, refetchInterval: 8_000 });
   const [body, setBody] = useState("");
   const endRef = useRef<HTMLDivElement>(null);
   const send = trpc.conversations.replyAsCustomer.useMutation({

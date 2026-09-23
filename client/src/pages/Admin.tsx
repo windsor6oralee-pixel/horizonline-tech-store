@@ -2,9 +2,10 @@ import { useAuth } from "@/_core/hooks/useAuth";
 import DashboardLayout from "@/components/DashboardLayout";
 import StoreFooter from "@/components/StoreFooter";
 import { trpc } from "@/lib/trpc";
-import { CalendarClock, CheckCircle2, ClipboardList, Copy, ExternalLink, FileText, IdCard, Laptop, Link2, Loader2, MapPin, MessageCircle, MessagesSquare, PhoneCall, QrCode, Receipt, Send, ShieldAlert, TriangleAlert, Smartphone, Tablet, Truck, Users, X, XCircle } from "lucide-react";
+import { CalendarClock, CheckCircle2, ClipboardList, Copy, ExternalLink, FileText, IdCard, Laptop, Link2, Loader2, MapPin, MessageCircle, MessagesSquare, PhoneCall, QrCode, Receipt, Send, ShieldAlert, TriangleAlert, Volume2, VolumeX, Smartphone, Tablet, Truck, Users, X, XCircle } from "lucide-react";
 import { FormEvent, useEffect, useState } from "react";
 import { toast } from "sonner";
+import { useAlertSound, useNewItems } from "@/hooks/useAlertSound";
 import { formatWhatsAppNumber, normalizeWhatsAppNumber } from "@shared/whatsapp";
 import { DEVICE_LABELS, PRESENCE_STEPS, type Device, stepIndex, stepLabel } from "@shared/presence";
 import { PAYMENT_STATUS_LABELS } from "@shared/payment";
@@ -29,7 +30,7 @@ export default function Admin() {
   const { data: allReceipts = [] } = trpc.payments.list.useQuery(undefined, { enabled: isAdmin, refetchInterval: 20_000 });
   const pendingReceipts = allReceipts.filter(receipt => receipt.status === "pending").length + pendingProofs;
   const newLeads = incompleteLeads.filter(lead => lead.status === "new").length;
-  const { data: threads = [] } = trpc.conversations.list.useQuery(undefined, { enabled: isAdmin, refetchInterval: 30_000 });
+  const { data: threads = [] } = trpc.conversations.list.useQuery(undefined, { enabled: isAdmin, refetchInterval: 10_000 });
   const unreadByLead = new Map(threads.filter(t => t.leadId).map(t => [t.leadId as number, t.unread]));
   const unreadTotal = threads.reduce((sum, t) => sum + t.unread, 0);
   const [openLead, setOpenLead] = useState<(typeof incompleteLeads)[number] | null>(null);
@@ -213,11 +214,16 @@ function CustomerInbox() {
   const utils = trpc.useUtils();
   const [openId, setOpenId] = useState<number | null>(null);
   const [body, setBody] = useState("");
-  const { data: threads = [], isLoading } = trpc.conversations.list.useQuery(undefined, { refetchInterval: 30_000 });
+  const { data: threads = [], isLoading } = trpc.conversations.list.useQuery(undefined, { refetchInterval: 10_000 });
   const { data: messages = [] } = trpc.conversations.thread.useQuery(
     { id: openId ?? 0, markRead: true },
-    { enabled: Boolean(openId), refetchInterval: 15_000 },
+    { enabled: Boolean(openId), refetchInterval: 5_000 },
   );
+  const { play } = useAlertSound();
+  useNewItems(threads.filter(t => t.unread > 0).map(t => `${t.id}:${t.unread}:${new Date(t.lastMessageAt).getTime()}`), () => {
+    play("message");
+    toast.message("رسالة جديدة من عميل", { duration: 6000 });
+  });
   const reply = trpc.conversations.replyAsAdmin.useMutation({
     onSuccess: () => { setBody(""); utils.conversations.thread.invalidate(); utils.conversations.list.invalidate(); },
     onError: error => toast.error(error.message || "تعذر إرسال الرسالة"),
@@ -361,13 +367,25 @@ function Detail({ icon: Icon, label, value, mono }: { icon: typeof PhoneCall; la
 
 function PendingReceiptsAlert() {
   const utils = trpc.useUtils();
-  const { data: receipts = [] } = trpc.payments.list.useQuery(undefined, { refetchInterval: 20_000 });
-  const { data: orders = [] } = trpc.orders.list.useQuery(undefined, { refetchInterval: 20_000 });
+  const { data: receipts = [] } = trpc.payments.list.useQuery(undefined, { refetchInterval: 10_000 });
+  const { data: orders = [] } = trpc.orders.list.useQuery(undefined, { refetchInterval: 10_000 });
+  const { play, muted, toggleMuted } = useAlertSound();
   type Item = { key: string; kind: "order" | "receipt"; id: number; customerName: string; phone: string; province: string | null; amount: string; product: string | null; createdAt: string | Date; fileUrl: string; recipientName?: string | null; transactionRef?: string | null; receiptAt?: string | Date | null; note?: string | null };
   const items: Item[] = [
     ...orders.filter(o => o.paymentProofKey && o.paymentProofStatus === "pending").map(o => ({ key: `o${o.id}`, kind: "order" as const, id: o.id, customerName: o.customerName, phone: o.phone, province: o.province, amount: o.downPaymentUsd, product: o.productTitle, createdAt: o.createdAt, fileUrl: `/api/files/${o.paymentProofKey}` })),
     ...receipts.filter(r => r.status === "pending").map(r => ({ key: `r${r.id}`, kind: "receipt" as const, id: r.id, customerName: r.customerName, phone: r.customerPhone, province: null, amount: r.amountUsd, product: null, createdAt: r.createdAt, fileUrl: `/api/files/${r.fileKey}`, recipientName: r.recipientName, transactionRef: r.transactionRef, receiptAt: r.receiptAt, note: r.note })),
   ].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+  useNewItems(items.map(item => item.key), added => {
+    play("receipt");
+    toast.message(added.length === 1 ? "إيصال دفع جديد بانتظار تأكيدك" : `${added.length} إيصالات دفع جديدة`, { duration: 8000 });
+  });
+  useEffect(() => {
+    const base = "Horizonline — لوحة التحكم";
+    if (items.length === 0) { document.title = base; return; }
+    let on = false;
+    const timer = window.setInterval(() => { on = !on; document.title = on ? `🔔 (${items.length}) إيصال بانتظارك` : base; }, 1200);
+    return () => { window.clearInterval(timer); document.title = base; };
+  }, [items.length]);
   const [openKey, setOpenKey] = useState<string | null>(null);
   const [eta, setEta] = useState<string>(DELIVERY_ETAS[0].value);
   const [message, setMessage] = useState("");
@@ -399,6 +417,7 @@ function PendingReceiptsAlert() {
         <span className="relative grid h-11 w-11 place-items-center rounded-xl bg-[#aa7412] text-white"><TriangleAlert className="h-5 w-5" /><span className="absolute -right-1 -top-1 flex h-3 w-3"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#aa7412] opacity-75" /><span className="relative inline-flex h-3 w-3 rounded-full bg-[#aa7412]" /></span></span>
         <div><h2 className="font-extrabold text-[#0a2342]">{items.length === 1 ? "إيصال دفع بانتظار تأكيدك" : `${items.length} إيصالات دفع بانتظار تأكيدك`}</h2><p className="mt-0.5 text-xs text-slate-600">افتح الإيصال وطابق المستلم (هيثم يوسف سعيد) والمبلغ والتاريخ في تطبيق المحفظة، ثم أكّد لتُرسل تعليمات الشحن للعميل.</p></div>
       </div>
+      <button onClick={toggleMuted} className="flex h-9 items-center gap-1.5 rounded-lg border border-[#f0c987] bg-white px-3 text-[11px] font-extrabold text-[#aa7412]" title={muted ? "تشغيل التنبيه الصوتي" : "كتم التنبيه الصوتي"}>{muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}{muted ? "الصوت مكتوم" : "تنبيه صوتي"}</button>
     </div>
     <div className="divide-y divide-[#f3e2bd]">
       {items.map(item => (

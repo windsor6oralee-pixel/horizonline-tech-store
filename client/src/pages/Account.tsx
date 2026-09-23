@@ -73,7 +73,7 @@ function AuthForms() {
 function Dashboard() {
   const utils = trpc.useUtils();
   const [, setLocation] = useLocation();
-  const { data, isLoading } = trpc.account.overview.useQuery(undefined, { refetchInterval: 20_000 });
+  const { data, isLoading } = trpc.account.overview.useQuery(undefined, { refetchInterval: 8_000 });
   const [body, setBody] = useState("");
   const send = trpc.account.sendMessage.useMutation({
     onSuccess: () => { setBody(""); utils.account.overview.invalidate(); },
