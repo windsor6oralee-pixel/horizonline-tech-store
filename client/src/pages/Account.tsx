@@ -2,7 +2,7 @@ import { BrandLockup } from "@/components/BrandLogo";
 import StoreFooter from "@/components/StoreFooter";
 import { trpc } from "@/lib/trpc";
 import { digitsOnly } from "@shared/text";
-import { ClipboardList, Loader2, LogOut, MessagesSquare, Send } from "lucide-react";
+import { ClipboardList, Copy, FileUp, Loader2, Lock, LogOut, MessagesSquare, QrCode, Send, ShieldCheck } from "lucide-react";
 import { FormEvent, useState } from "react";
 import { toast } from "sonner";
 import { useLocation } from "wouter";
@@ -122,29 +122,128 @@ function Dashboard() {
           </div>
         </section>
 
+        <PaymentSection />
+
         <section className="mt-8">
           <p className="flex items-center gap-1.5 text-sm font-extrabold text-[#0a2342]"><MessagesSquare className="h-4 w-4 text-[#1f6f96]" />المحادثة مع المتجر</p>
-          <div className="mt-3 space-y-3">
-            {data.messages.length === 0
-              ? <p className="rounded-2xl border border-dashed border-[#cadce9] bg-white p-6 text-center text-xs text-slate-400">لا توجد رسائل بعد — اكتب سؤالك في الأسفل وسيصلك الرد هنا.</p>
-              : data.messages.map(message => (
-                  <article key={message.id} className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-6 ${message.sender === "admin" ? "border border-[#d6e5f0] bg-white text-[#0a2342]" : "mr-auto bg-[#0a2342] text-white"}`}>
-                    <p className="whitespace-pre-wrap">{message.body}</p>
-                    <time className={`mt-2 block text-[10px] ${message.sender === "admin" ? "text-slate-400" : "text-[#8ab4cc]"}`}>
-                      {message.sender === "admin" ? "فريق Horizonline" : "أنت"} · {new Date(message.createdAt).toLocaleString("ar-SY", { dateStyle: "short", timeStyle: "short" })}
-                    </time>
-                  </article>
-                ))}
-          </div>
-          <form onSubmit={e => { e.preventDefault(); if (body.trim()) send.mutate({ body }); }} className="mt-4 flex items-end gap-2">
-            <textarea value={body} onChange={e => setBody(e.target.value)} rows={2} maxLength={2000} placeholder="اكتب رسالتك…" className="form-field h-auto flex-1 resize-none py-3 leading-6" />
-            <button type="submit" disabled={send.isPending || !body.trim()} className="button-dark grid h-12 w-12 shrink-0 place-items-center rounded-xl disabled:opacity-50" aria-label="إرسال">
-              {send.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-            </button>
-          </form>
+          {!data.chatUnlocked ? (
+            <div className="mt-3 rounded-2xl border border-dashed border-[#cadce9] bg-white p-6 text-center">
+              <Lock className="mx-auto h-6 w-6 text-slate-300" />
+              <p className="mt-2 text-sm font-extrabold text-[#0a2342]">تُفتح المحادثة بعد رفع إيصال الدفعة الأولى</p>
+              <p className="mt-1 text-xs leading-6 text-slate-500">ادفع الدفعة إلى محفظة المتجر أعلاه وارفع لقطة عملية الدفع، وسيصبح بإمكانك مراسلة الفريق فوراً.</p>
+            </div>
+          ) : <>
+            <div className="mt-3 space-y-3">
+              {data.messages.length === 0
+                ? <p className="rounded-2xl border border-dashed border-[#cadce9] bg-white p-6 text-center text-xs text-slate-400">لا توجد رسائل بعد — اكتب سؤالك في الأسفل وسيصلك الرد هنا.</p>
+                : data.messages.map(message => (
+                    <article key={message.id} className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-6 ${message.sender === "admin" ? "border border-[#d6e5f0] bg-white text-[#0a2342]" : "mr-auto bg-[#0a2342] text-white"}`}>
+                      <p className="whitespace-pre-wrap">{message.body}</p>
+                      <time className={`mt-2 block text-[10px] ${message.sender === "admin" ? "text-slate-400" : "text-[#8ab4cc]"}`}>
+                        {message.sender === "admin" ? "فريق Horizonline" : "أنت"} · {new Date(message.createdAt).toLocaleString("ar-SY", { dateStyle: "short", timeStyle: "short" })}
+                      </time>
+                    </article>
+                  ))}
+            </div>
+            <form onSubmit={e => { e.preventDefault(); if (body.trim()) send.mutate({ body }); }} className="mt-4 flex items-end gap-2">
+              <textarea value={body} onChange={e => setBody(e.target.value)} rows={2} maxLength={2000} placeholder="اكتب رسالتك…" className="form-field h-auto flex-1 resize-none py-3 leading-6" />
+              <button type="submit" disabled={send.isPending || !body.trim()} className="button-dark grid h-12 w-12 shrink-0 place-items-center rounded-xl disabled:opacity-50" aria-label="إرسال">
+                {send.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+              </button>
+            </form>
+          </>}
         </section>
       </>}
     </main>
     <StoreFooter />
   </div>;
+}
+
+function PaymentSection() {
+  const utils = trpc.useUtils();
+  const { data, isLoading } = trpc.account.paymentInfo.useQuery();
+  const [file, setFile] = useState<{ fileName: string; mimeType: "image/jpeg" | "image/png" | "image/webp" | "application/pdf"; dataUrl: string } | null>(null);
+  const upload = trpc.account.uploadReceipt.useMutation({
+    onSuccess: () => { setFile(null); toast.success("وصلنا إيصالك — المحادثة مفتوحة الآن"); utils.account.paymentInfo.invalidate(); utils.account.overview.invalidate(); },
+    onError: e => toast.error(e.message || "تعذر رفع الإيصال"),
+  });
+  const copy = async (value: string, label: string) => {
+    try { await navigator.clipboard.writeText(value); toast.success(`نُسخ ${label}`); } catch { toast.error("تعذر النسخ"); }
+  };
+  const pick = (selected?: File) => {
+    if (!selected) return;
+    const allowed = ["image/jpeg", "image/png", "image/webp", "application/pdf"] as const;
+    if (!allowed.includes(selected.type as (typeof allowed)[number])) return toast.error("ارفع صورة JPG أو PNG أو WEBP أو ملف PDF");
+    if (selected.size > 3 * 1024 * 1024) return toast.error("يجب ألا يتجاوز حجم الملف 3 ميغابايت");
+    const reader = new FileReader();
+    reader.onload = () => setFile({ fileName: selected.name, mimeType: selected.type as (typeof allowed)[number], dataUrl: String(reader.result) });
+    reader.onerror = () => toast.error("تعذر قراءة الملف");
+    reader.readAsDataURL(selected);
+  };
+
+  if (isLoading || !data || !data.hasOrder) return null;
+
+  const amount = Number(data.amountUsd).toFixed(0);
+  const latest = data.latest;
+  const needsUpload = !latest || latest.status === "rejected";
+
+  return <section className="mt-8">
+    <p className="flex items-center gap-1.5 text-sm font-extrabold text-[#0a2342]"><QrCode className="h-4 w-4 text-[#1f6f96]" />الدفعة الأولى</p>
+
+    {latest && latest.status !== "rejected" && (
+      <div className={`mt-3 flex items-start gap-3 rounded-2xl border p-4 ${latest.status === "approved" ? "border-[#bfe6d0] bg-[#f0faf4]" : "border-[#d6e5f0] bg-[#f2fafd]"}`}>
+        <ShieldCheck className={`mt-0.5 h-5 w-5 shrink-0 ${latest.status === "approved" ? "text-[#15915f]" : "text-[#1f6f96]"}`} />
+        <div>
+          <b className="block text-sm text-[#0a2342]">{latest.status === "approved" ? "تم تأكيد دفعتك" : "وصلنا إيصالك وهو قيد المراجعة"}</b>
+          <p className="mt-1 text-xs leading-6 text-slate-500">${Number(latest.amountUsd).toFixed(0)} · {new Date(latest.createdAt).toLocaleString("ar-SY", { dateStyle: "medium", timeStyle: "short" })}{latest.status === "pending" && " — يمكنك مراسلة الفريق الآن، وسنؤكد الدفعة بعد التحقق."}</p>
+        </div>
+      </div>
+    )}
+
+    {needsUpload && (
+      <div className="mt-3 overflow-hidden rounded-[24px] border border-[#d6e5f0] bg-white">
+        {latest?.status === "rejected" && (
+          <p className="border-b border-[#f3d2cc] bg-[#fdf1ef] px-5 py-3 text-xs leading-6 text-[#a5301f]"><b>لم نتمكن من تأكيد الإيصال السابق.</b>{latest.note ? ` ${latest.note}` : ""} ارفع لقطة أوضح لعملية الدفع.</p>
+        )}
+        <div className="grid gap-5 p-5 sm:grid-cols-[200px_1fr] sm:items-start">
+          <div className="grid place-items-center rounded-2xl bg-[#f2fafd] p-3">
+            {data.qrDataUrl
+              ? <img src={data.qrDataUrl} alt={`رمز الدفع — ${data.provider}`} className="w-full max-w-[180px] rounded-xl" />
+              : <p className="py-8 text-center text-[11px] text-slate-400">استخدم معرّف المحفظة أدناه للتحويل</p>}
+          </div>
+          <div className="text-right">
+            <p className="text-xs font-bold text-slate-400">ادفع عبر {data.provider} إلى محفظة</p>
+            <b className="mt-0.5 block text-base text-[#0a2342]">{data.walletName || "محفظة المتجر"}</b>
+            {data.walletId && (
+              <button type="button" onClick={() => copy(data.walletId, "معرّف المحفظة")} className="mt-2 flex w-full items-center justify-between gap-2 rounded-xl border border-slate-200 bg-[#fbfdfe] px-3 py-2 text-right hover:border-[#8ad9e3]">
+                <span className="min-w-0 truncate font-mono text-[11px] text-slate-600" dir="ltr">{data.walletId}</span>
+                <Copy className="h-4 w-4 shrink-0 text-[#1f6f96]" />
+              </button>
+            )}
+            <div className="mt-3 rounded-2xl bg-[#0a2342] p-4 text-white">
+              <p className="text-[11px] font-bold text-[#8ad9e3]">المبلغ المطلوب — أدخله بالضبط</p>
+              <div className="mt-1 flex items-center justify-between gap-3">
+                <span className="font-mono text-3xl font-extrabold">${amount}</span>
+                <button type="button" onClick={() => copy(amount, "المبلغ")} className="flex h-9 items-center gap-1.5 rounded-lg bg-white/10 px-3 text-[11px] font-extrabold hover:bg-white/20"><Copy className="h-3.5 w-3.5" />نسخ</button>
+              </div>
+              <p className="mt-2 text-[10px] leading-5 text-[#c9d7e1]">الدفعة الأولى لطلب {data.productTitle}. أي فرق في المبلغ يؤخر تأكيد طلبك.</p>
+            </div>
+          </div>
+        </div>
+        <div className="border-t border-slate-100 bg-[#fbfdfe] p-5">
+          <p className="text-xs font-extrabold text-[#0a2342]">بعد الدفع: ارفع لقطة شاشة لعملية التحويل</p>
+          <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center">
+            <label className="button-dark inline-flex h-11 cursor-pointer items-center justify-center gap-2 rounded-xl px-5 text-xs">
+              <FileUp className="h-4 w-4" />{file ? "استبدال الملف" : "اختيار الملف"}
+              <input className="sr-only" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" onChange={e => pick(e.target.files?.[0])} />
+            </label>
+            <span className="min-w-0 flex-1 truncate text-xs text-slate-500">{file ? file.fileName : "JPG أو PNG أو WEBP أو PDF حتى 3 ميغابايت"}</span>
+            <button type="button" disabled={!file || upload.isPending} onClick={() => file && upload.mutate(file)} className="h-11 rounded-xl bg-[#15915f] px-5 text-xs font-extrabold text-white disabled:opacity-50">
+              {upload.isPending ? "جارٍ الرفع…" : "إرسال الإيصال"}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+  </section>;
 }

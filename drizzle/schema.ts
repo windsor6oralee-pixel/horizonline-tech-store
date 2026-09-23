@@ -172,3 +172,18 @@ export const customers = mysqlTable("customers", {
   lastLoginAt: timestamp("lastLoginAt").defaultNow().notNull(),
 });
 export type Customer = typeof customers.$inferSelect;
+
+/** A down-payment receipt a signed-in customer uploaded against the store's wallet QR. */
+export const customerPayments = mysqlTable("customerPayments", {
+  id: int("id").autoincrement().primaryKey(),
+  customerId: int("customerId").notNull(),
+  amountUsd: decimal("amountUsd", { precision: 10, scale: 2 }).notNull(),
+  fileKey: varchar("fileKey", { length: 512 }).notNull(),
+  fileName: varchar("fileName", { length: 255 }).notNull(),
+  mimeType: varchar("mimeType", { length: 120 }).notNull(),
+  status: mysqlEnum("status", ["pending", "approved", "rejected"]).default("pending").notNull(),
+  note: varchar("note", { length: 255 }),
+  reviewedAt: timestamp("reviewedAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type CustomerPayment = typeof customerPayments.$inferSelect;

@@ -1,6 +1,6 @@
 import { and, desc, eq, gte, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { IncompleteCheckoutLead, InsertIncompleteCheckoutLead, InsertInstallmentOrder, InsertUser, incompleteCheckoutLeads, installmentOrders, conversationMessages, conversations, customers, storeSettings, storedFiles, users, visitorSessions } from "../drizzle/schema";
+import { IncompleteCheckoutLead, InsertIncompleteCheckoutLead, InsertInstallmentOrder, InsertUser, incompleteCheckoutLeads, installmentOrders, conversationMessages, conversations, customerPayments, customers, storeSettings, storedFiles, users, visitorSessions } from "../drizzle/schema";
 import { ENV } from './_core/env';
 import { migrate } from "drizzle-orm/mysql2/migrator";
 import path from "path";
@@ -398,4 +398,41 @@ export async function linkConversationsToCustomer(customerId: number, leadIds: n
   for (const leadId of leadIds) {
     await db.update(conversations).set({ customerId }).where(eq(conversations.leadId, leadId));
   }
+}
+
+export async function createCustomerPayment(input: { customerId: number; amountUsd: string; fileKey: string; fileName: string; mimeType: string }) {
+  const db = await getDb();
+  if (!db) throw new Error("قاعدة البيانات غير متاحة حالياً");
+  await db.insert(customerPayments).values(input);
+}
+
+export async function listCustomerPayments(customerId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(customerPayments).where(eq(customerPayments.customerId, customerId)).orderBy(desc(customerPayments.createdAt));
+}
+
+/** Chat opens once a receipt is on file that has not been rejected. */
+export async function customerChatUnlocked(customerId: number): Promise<boolean> {
+  const payments = await listCustomerPayments(customerId);
+  return payments.some(payment => payment.status !== "rejected");
+}
+
+export async function listAllCustomerPayments() {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select({
+    id: customerPayments.id, customerId: customerPayments.customerId, amountUsd: customerPayments.amountUsd,
+    fileKey: customerPayments.fileKey, fileName: customerPayments.fileName, mimeType: customerPayments.mimeType,
+    status: customerPayments.status, note: customerPayments.note, reviewedAt: customerPayments.reviewedAt,
+    createdAt: customerPayments.createdAt, customerName: customers.name, customerPhone: customers.phone,
+  }).from(customerPayments)
+    .innerJoin(customers, eq(customers.id, customerPayments.customerId))
+    .orderBy(desc(customerPayments.createdAt));
+}
+
+export async function reviewCustomerPayment(id: number, status: "approved" | "rejected", note: string | null) {
+  const db = await getDb();
+  if (!db) throw new Error("قاعدة البيانات غير متاحة حالياً");
+  await db.update(customerPayments).set({ status, note, reviewedAt: new Date() }).where(eq(customerPayments.id, id));
 }

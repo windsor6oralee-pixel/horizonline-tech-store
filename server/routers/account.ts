@@ -2,10 +2,13 @@ import { normalizeWhatsAppNumber } from "@shared/whatsapp";
 import { nanoid } from "nanoid";
 import { z } from "zod";
 import {
-  addConversationMessage, createConversation, createCustomer, findConversationByCustomer,
-  getCustomerById, getCustomerByPhone, getCustomerRecords, linkConversationsToCustomer,
-  listConversationMessages, touchCustomerLogin,
+  addConversationMessage, createConversation, createCustomer, createCustomerPayment, customerChatUnlocked,
+  findConversationByCustomer, getCustomerById, getCustomerByPhone, getCustomerRecords, linkConversationsToCustomer,
+  listConversationMessages, listCustomerPayments, touchCustomerLogin,
 } from "../db";
+import { storagePut } from "../storage";
+import { decodeDataUrl, safeFileName } from "../uploads";
+import { readPaymentQrDataUrl, readPaymentSettings } from "./settings";
 import { CUSTOMER_SESSION_COOKIE, SESSION_MAX_AGE_MS, createCustomerSession, hashPassword, verifyPassword } from "../customerAuth";
 import { getSessionCookieOptions } from "../_core/cookies";
 import { customerProcedure, publicProcedure, router } from "../_core/trpc";
@@ -18,6 +21,10 @@ const localPhone = (input: string) => {
 
 const phoneInput = z.string().trim().min(8).max(32);
 const passwordInput = z.string().min(6).max(200);
+
+function dueAmount(records: Awaited<ReturnType<typeof getCustomerRecords>>): string | null {
+  return records.orders[0]?.downPaymentUsd ?? records.leads[0]?.downPaymentUsd ?? null;
+}
 
 export const accountRouter = router({
   register: publicProcedure
@@ -90,13 +97,56 @@ export const accountRouter = router({
         id: lead.id, productTitle: lead.productTitle, downPaymentUsd: lead.downPaymentUsd,
         months: lead.months, checkoutStep: lead.checkoutStep, createdAt: lead.createdAt,
       })),
-      messages: await listConversationMessages(conversation.id),
+      chatUnlocked: await customerChatUnlocked(customer.id),
+      messages: (await customerChatUnlocked(customer.id)) ? await listConversationMessages(conversation.id) : [],
     };
   }),
+
+  /** Wallet details and the amount due; the QR is only ever returned to a signed-in customer with a record. */
+  paymentInfo: customerProcedure.query(async ({ ctx }) => {
+    const customer = await getCustomerById(ctx.customerId);
+    if (!customer) throw new Error("تعذر العثور على الحساب");
+    const records = await getCustomerRecords(customer.phone);
+    const amountUsd = dueAmount(records);
+    const payments = await listCustomerPayments(customer.id);
+    const latest = payments[0] ?? null;
+    if (!amountUsd) return { hasOrder: false as const, latest: null, chatUnlocked: false };
+    const settings = await readPaymentSettings();
+    const showQr = !latest || latest.status === "rejected";
+    return {
+      hasOrder: true as const,
+      amountUsd,
+      productTitle: records.orders[0]?.productTitle ?? records.leads[0]?.productTitle ?? "",
+      provider: settings.provider,
+      walletName: settings.walletName,
+      walletId: settings.walletId,
+      qrDataUrl: showQr ? await readPaymentQrDataUrl() : null,
+      latest: latest ? { status: latest.status, note: latest.note, createdAt: latest.createdAt, amountUsd: latest.amountUsd } : null,
+      chatUnlocked: payments.some(payment => payment.status !== "rejected"),
+    };
+  }),
+
+  uploadReceipt: customerProcedure
+    .input(z.object({
+      fileName: z.string().trim().min(1).max(160),
+      mimeType: z.enum(["image/jpeg", "image/png", "image/webp", "application/pdf"]),
+      dataUrl: z.string().min(20).max(4_500_000),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const customer = await getCustomerById(ctx.customerId);
+      if (!customer) throw new Error("تعذر العثور على الحساب");
+      const amountUsd = dueAmount(await getCustomerRecords(customer.phone));
+      if (!amountUsd) throw new Error("لا يوجد طلب مرتبط بحسابك بعد");
+      const bytes = decodeDataUrl(input.dataUrl, input.mimeType, 3 * 1024 * 1024, "إثبات الدفع");
+      const stored = await storagePut(`customer-receipts/${customer.id}/${safeFileName(input.fileName, input.mimeType, "receipt")}`, bytes, input.mimeType);
+      await createCustomerPayment({ customerId: customer.id, amountUsd, fileKey: stored.key, fileName: input.fileName, mimeType: input.mimeType });
+      return { success: true } as const;
+    }),
 
   sendMessage: customerProcedure
     .input(z.object({ body: z.string().trim().min(1).max(2000) }))
     .mutation(async ({ input, ctx }) => {
+      if (!(await customerChatUnlocked(ctx.customerId))) throw new Error("تُفتح المحادثة بعد رفع إيصال الدفعة الأولى");
       const conversation = await findConversationByCustomer(ctx.customerId);
       if (!conversation) throw new Error("افتح صفحة حسابك أولاً");
       await addConversationMessage({ conversationId: conversation.id, sender: "customer", body: input.body });

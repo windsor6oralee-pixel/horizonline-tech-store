@@ -2,11 +2,12 @@ import { useAuth } from "@/_core/hooks/useAuth";
 import DashboardLayout from "@/components/DashboardLayout";
 import StoreFooter from "@/components/StoreFooter";
 import { trpc } from "@/lib/trpc";
-import { CalendarClock, CheckCircle2, ClipboardList, Copy, ExternalLink, FileText, IdCard, Laptop, Link2, Loader2, MapPin, MessageCircle, MessagesSquare, PhoneCall, Send, ShieldAlert, Smartphone, Tablet, Truck, Users, X, XCircle } from "lucide-react";
+import { CalendarClock, CheckCircle2, ClipboardList, Copy, ExternalLink, FileText, IdCard, Laptop, Link2, Loader2, MapPin, MessageCircle, MessagesSquare, PhoneCall, QrCode, Receipt, Send, ShieldAlert, Smartphone, Tablet, Truck, Users, X, XCircle } from "lucide-react";
 import { FormEvent, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { formatWhatsAppNumber, normalizeWhatsAppNumber } from "@shared/whatsapp";
 import { DEVICE_LABELS, PRESENCE_STEPS, type Device, stepIndex, stepLabel } from "@shared/presence";
+import { PAYMENT_STATUS_LABELS } from "@shared/payment";
 import { toInternationalDigits, whatsAppChatLink } from "@shared/whatsapp";
 
 const statusLabels = { new: "جديد", under_review: "قيد المراجعة", approved: "معتمد", needs_contact: "يتطلب تواصلاً", cancelled: "ملغي" } as const;
@@ -37,6 +38,8 @@ export default function Admin() {
       <div className="mt-7 grid gap-4 md:grid-cols-4"><Stat icon={ClipboardList} value={total} label="إجمالي الطلبات" /><Stat icon={CheckCircle2} value={approved} label="طلبات معتمدة" tone="green" /><Stat icon={FileText} value={pendingProofs} label="إيصالات بانتظار المراجعة" tone="yellow" /><Stat icon={PhoneCall} value={newLeads} label="متابعات جديدة" tone="blue" /></div>
       <LiveVisitors />
       <CustomerInbox />
+      <ReceiptsReview />
+      <PaymentSettings />
       <WhatsAppSettings />
       <section className="mt-7 overflow-hidden rounded-[25px] border border-[#d8e7e6] bg-[#fbfefe]"><div className="flex flex-col gap-2 border-b border-[#e4efed] px-6 py-5 sm:flex-row sm:items-center sm:justify-between"><div><h2 className="font-extrabold text-[#0a2342]">متابعات ومحادثات واتساب</h2><p className="mt-1 text-xs text-slate-500">عملاء بدأوا الطلب ولم يكملوه: إمّا حفظوا بياناتهم بموافقتهم، أو انتقلوا للمحادثة عبر واتساب.</p></div><span className="rounded-full bg-[#e8f3fa] px-3 py-1 text-xs font-bold text-[#1f6f96]">{incompleteLeads.length} متابعة · منها {incompleteLeads.filter(lead => lead.source === "whatsapp").length} واتساب</span>{unreadTotal > 0 && <span className="rounded-full bg-[#0a2342] px-3 py-1 text-xs font-bold text-[#8ad9e3]">{unreadTotal} رسالة غير مقروءة</span>}</div>{leadsLoading ? <div className="grid min-h-32 place-items-center"><Loader2 className="h-5 w-5 animate-spin text-[#1f6f96]" /></div> : incompleteLeads.length === 0 ? <div className="px-6 py-10 text-center"><PhoneCall className="mx-auto h-8 w-8 text-slate-300" /><p className="mt-3 text-sm font-bold text-slate-500">لا توجد متابعات بعد.</p></div> : <div className="grid gap-3 p-4 md:grid-cols-2">{incompleteLeads.map(lead => <article key={lead.id} onClick={() => setOpenLead(lead)} className="cursor-pointer rounded-2xl border border-slate-200 bg-white p-4 transition hover:-translate-y-0.5 hover:border-[#8ad9e3] hover:shadow-md"><div className="flex items-start justify-between gap-3"><div><p className="font-extrabold text-[#0a2342]">{lead.customerName}</p><p className="mt-1 text-xs text-slate-500">{[lead.phone, lead.province].filter(Boolean).join(" · ") || "راسلك من رقمه على واتساب"}</p></div><div className="flex shrink-0 flex-col items-end gap-1.5">{(unreadByLead.get(lead.id) ?? 0) > 0 && <span className="flex items-center gap-1 rounded-full bg-[#0a2342] px-2 py-1 text-[10px] font-extrabold text-[#8ad9e3]"><MessagesSquare className="h-3 w-3" />{unreadByLead.get(lead.id)} رسالة جديدة</span>}{lead.source === "whatsapp" ? <span className="flex shrink-0 items-center gap-1 rounded-full bg-[#e7f9ee] px-2 py-1 text-[10px] font-extrabold text-[#128c45]"><MessageCircle className="h-3 w-3" />محادثة واتساب</span> : <span className="shrink-0 rounded-full bg-[#eff5fa] px-2 py-1 text-[10px] font-extrabold text-[#1f6f96]">بموافقة العميل</span>}</div></div><p className="mt-4 font-bold text-slate-700">{lead.productTitle}</p><p className="mt-1 text-xs text-slate-500">دفعة {lead.downPaymentUsd}$ · {lead.months} شهر · {new Date(lead.createdAt).toLocaleDateString("ar-SY")}</p><div className="mt-4 flex items-center justify-between gap-3"><span className="text-[11px] font-bold text-slate-400">{lead.source === "whatsapp" ? `توقف عند: ${leadStepLabels[lead.checkoutStep]}` : "لا توجد وثائق ضمن هذا السجل"}</span><select onClick={event => event.stopPropagation()} className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-[11px] font-bold text-slate-700" value={lead.status} onChange={event => updateLead.mutate({ id: lead.id, status: event.target.value as keyof typeof leadStatusLabels })} disabled={updateLead.isPending}>{Object.entries(leadStatusLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></div></article>)}</div>}</section>
       <section className="mt-7 overflow-hidden rounded-[25px] border border-slate-200 bg-white">
@@ -350,6 +353,98 @@ function Detail({ icon: Icon, label, value, mono }: { icon: typeof PhoneCall; la
     <p className="flex items-center gap-1.5 text-[10px] font-extrabold text-slate-400"><Icon className="h-3.5 w-3.5" />{label}</p>
     <p className={`mt-1.5 text-[13px] font-bold text-[#0a2342] ${mono ? "font-mono" : ""}`} dir={mono ? "ltr" : undefined}>{value}</p>
   </div>;
+}
+
+function PaymentSettings() {
+  const utils = trpc.useUtils();
+  const { data, isLoading } = trpc.settings.paymentSettings.useQuery();
+  const [walletName, setWalletName] = useState("");
+  const [walletId, setWalletId] = useState("");
+  const [provider, setProvider] = useState("شام كاش");
+  const [qr, setQr] = useState<{ fileName: string; mimeType: "image/jpeg" | "image/png" | "image/webp"; dataUrl: string } | null>(null);
+  useEffect(() => { if (data) { setWalletName(data.walletName); setWalletId(data.walletId); setProvider(data.provider); } }, [data]);
+  const save = trpc.settings.updatePaymentSettings.useMutation({
+    onSuccess: () => { setQr(null); toast.success("تم حفظ بيانات الدفع"); utils.settings.paymentSettings.invalidate(); },
+    onError: error => toast.error(error.message || "تعذر الحفظ"),
+  });
+  const pick = (selected?: File) => {
+    if (!selected) return;
+    if (!["image/jpeg", "image/png", "image/webp"].includes(selected.type)) return toast.error("ارفع صورة JPG أو PNG أو WEBP");
+    if (selected.size > 2 * 1024 * 1024) return toast.error("يجب ألا يتجاوز حجم الصورة 2 ميغابايت");
+    const reader = new FileReader();
+    reader.onload = () => setQr({ fileName: selected.name, mimeType: selected.type as "image/jpeg" | "image/png" | "image/webp", dataUrl: String(reader.result) });
+    reader.readAsDataURL(selected);
+  };
+  const preview = qr?.dataUrl ?? data?.qrDataUrl ?? null;
+
+  return <section className="mt-7 rounded-[25px] border border-slate-200 bg-white p-6">
+    <div className="flex items-start gap-4">
+      <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[#e8f3fa] text-[#1f6f96]"><QrCode className="h-5 w-5" /></span>
+      <div className="min-w-0 flex-1">
+        <h2 className="font-extrabold text-[#0a2342]">محفظة استلام الدفعة الأولى</h2>
+        <p className="mt-1 text-xs leading-6 text-slate-500">يظهر هذا الرمز فقط للعميل المسجّل الذي لديه طلب، ولا يُنشر في أي صفحة عامة. بدّله من هنا إذا تغيّرت المحفظة.</p>
+        <form onSubmit={event => { event.preventDefault(); save.mutate({ walletName, walletId, provider, qr: qr ?? undefined }); }} className="mt-4 grid gap-4 sm:grid-cols-[160px_1fr]">
+          <label className="grid cursor-pointer place-items-center rounded-2xl border border-dashed border-[#cadce9] bg-[#fbfdfe] p-3 text-center">
+            {preview ? <img src={preview} alt="رمز الدفع" className="w-full rounded-lg" /> : <span className="py-8 text-[11px] text-slate-400">لم يُرفع رمز بعد<br />اضغط لاختيار الصورة</span>}
+            <input className="sr-only" type="file" accept="image/jpeg,image/png,image/webp" onChange={event => pick(event.target.files?.[0])} />
+            <span className="mt-2 text-[10px] font-extrabold text-[#1f6f96]">{qr ? "صورة جديدة جاهزة للحفظ" : "اضغط لتبديل الرمز"}</span>
+          </label>
+          <div className="space-y-3">
+            <label className="block text-xs font-bold text-slate-600">المزوّد<input value={provider} onChange={event => setProvider(event.target.value)} disabled={isLoading} className="form-field mt-1.5" placeholder="شام كاش" /></label>
+            <label className="block text-xs font-bold text-slate-600">اسم صاحب المحفظة<input value={walletName} onChange={event => setWalletName(event.target.value)} disabled={isLoading} className="form-field mt-1.5" placeholder="كما يظهر في التطبيق" /></label>
+            <label className="block text-xs font-bold text-slate-600">معرّف المحفظة<input dir="ltr" value={walletId} onChange={event => setWalletId(event.target.value)} disabled={isLoading} className="form-field mt-1.5 font-mono" placeholder="fa56242f…" /></label>
+            <button type="submit" disabled={save.isPending || isLoading} className="button-dark h-11 rounded-xl px-6 text-sm disabled:opacity-50">{save.isPending ? "جارٍ الحفظ…" : "حفظ"}</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </section>;
+}
+
+function ReceiptsReview() {
+  const utils = trpc.useUtils();
+  const { data: receipts = [], isLoading } = trpc.payments.list.useQuery(undefined, { refetchInterval: 30_000 });
+  const review = trpc.payments.review.useMutation({
+    onSuccess: (_, variables) => { toast.success(variables.status === "approved" ? "تم تأكيد الدفعة" : "تم رفض الإيصال"); utils.payments.list.invalidate(); },
+    onError: error => toast.error(error.message || "تعذر الحفظ"),
+  });
+  const pending = receipts.filter(receipt => receipt.status === "pending").length;
+  const reject = (id: number) => {
+    const note = window.prompt("سبب الرفض (يظهر للعميل):", "المبلغ أو التفاصيل غير مطابقة");
+    if (note === null) return;
+    review.mutate({ id, status: "rejected", note });
+  };
+
+  return <section className="mt-7 overflow-hidden rounded-[25px] border border-slate-200 bg-white">
+    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-6 py-5">
+      <div className="flex items-center gap-4">
+        <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[#e8f3fa] text-[#1f6f96]"><Receipt className="h-5 w-5" /></span>
+        <div><h2 className="font-extrabold text-[#0a2342]">إيصالات الدفعة الأولى</h2><p className="mt-1 text-xs text-slate-500">ما رفعه العملاء المسجّلون بعد الدفع إلى محفظة المتجر. أكّد أو ارفض بعد مطابقة المبلغ في تطبيق المحفظة.</p></div>
+      </div>
+      {pending > 0 && <span className="rounded-full bg-[#fff5d8] px-3 py-1 text-xs font-bold text-[#aa7412]">{pending} بانتظار المراجعة</span>}
+    </div>
+    {isLoading ? <div className="grid min-h-28 place-items-center"><Loader2 className="h-5 w-5 animate-spin text-[#1f6f96]" /></div>
+      : receipts.length === 0 ? <p className="px-6 py-12 text-center text-sm text-slate-400">لا توجد إيصالات بعد.</p>
+      : <div className="divide-y divide-slate-100">
+          {receipts.map(receipt => (
+            <div key={receipt.id} className="flex flex-wrap items-center gap-x-5 gap-y-2 px-6 py-4">
+              <div className="min-w-[180px] flex-1">
+                <p className="text-sm font-extrabold text-[#0a2342]">{receipt.customerName}</p>
+                <p className="mt-0.5 font-mono text-[11px] text-slate-400" dir="ltr">{receipt.customerPhone}</p>
+              </div>
+              <span className="font-mono text-sm font-extrabold text-[#0a2342]">${Number(receipt.amountUsd).toFixed(0)}</span>
+              <span className="text-[11px] text-slate-500">{new Date(receipt.createdAt).toLocaleString("ar-SY", { dateStyle: "short", timeStyle: "short" })}</span>
+              <span className={`rounded-full px-2.5 py-1 text-[10px] font-extrabold ${receipt.status === "approved" ? "bg-[#e7f9ee] text-[#128c45]" : receipt.status === "rejected" ? "bg-[#fdf1ef] text-[#a5301f]" : "bg-[#fff5d8] text-[#aa7412]"}`}>{PAYMENT_STATUS_LABELS[receipt.status]}</span>
+              <a href={`/api/files/${receipt.fileKey}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-[11px] font-extrabold text-[#1f6f96] hover:underline"><ExternalLink className="h-3.5 w-3.5" />عرض الإيصال</a>
+              {receipt.status === "pending" && <div className="flex gap-2">
+                <button onClick={() => review.mutate({ id: receipt.id, status: "approved" })} disabled={review.isPending} className="h-9 rounded-lg bg-[#15915f] px-3 text-[11px] font-extrabold text-white disabled:opacity-50">تأكيد</button>
+                <button onClick={() => reject(receipt.id)} disabled={review.isPending} className="h-9 rounded-lg border border-slate-200 px-3 text-[11px] font-extrabold text-slate-600 disabled:opacity-50">رفض</button>
+              </div>}
+              {receipt.note && <p className="w-full text-[11px] text-slate-400">ملاحظة: {receipt.note}</p>}
+            </div>
+          ))}
+        </div>}
+  </section>;
 }
 
 function WhatsAppSettings() {
