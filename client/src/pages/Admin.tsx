@@ -462,8 +462,9 @@ function PaymentSettings() {
   const [walletName, setWalletName] = useState("");
   const [walletId, setWalletId] = useState("");
   const [provider, setProvider] = useState("شام كاش");
+  const [sypRate, setSypRate] = useState("");
   const [qr, setQr] = useState<{ fileName: string; mimeType: "image/jpeg" | "image/png" | "image/webp"; dataUrl: string } | null>(null);
-  useEffect(() => { if (data) { setWalletName(data.walletName); setWalletId(data.walletId); setProvider(data.provider); } }, [data]);
+  useEffect(() => { if (data) { setWalletName(data.walletName); setWalletId(data.walletId); setProvider(data.provider); setSypRate(String(data.sypRate)); } }, [data]);
   const save = trpc.settings.updatePaymentSettings.useMutation({
     onSuccess: () => { setQr(null); toast.success("تم حفظ بيانات الدفع"); utils.settings.paymentSettings.invalidate(); },
     onError: error => toast.error(error.message || "تعذر الحفظ"),
@@ -484,7 +485,7 @@ function PaymentSettings() {
       <div className="min-w-0 flex-1">
         <h2 className="font-extrabold text-[#0a2342]">محفظة استلام الدفعة الأولى</h2>
         <p className="mt-1 text-xs leading-6 text-slate-500">يظهر هذا الرمز فقط للعميل المسجّل الذي لديه طلب، ولا يُنشر في أي صفحة عامة. بدّله من هنا إذا تغيّرت المحفظة.</p>
-        <form onSubmit={event => { event.preventDefault(); save.mutate({ walletName, walletId, provider, qr: qr ?? undefined }); }} className="mt-4 grid gap-4 sm:grid-cols-[160px_1fr]">
+        <form onSubmit={event => { event.preventDefault(); save.mutate({ walletName, walletId, provider, sypRate: Number(sypRate) > 0 ? Math.round(Number(sypRate)) : undefined, qr: qr ?? undefined }); }} className="mt-4 grid gap-4 sm:grid-cols-[160px_1fr]">
           <label className="grid cursor-pointer place-items-center rounded-2xl border border-dashed border-[#cadce9] bg-[#fbfdfe] p-3 text-center">
             {preview ? <img src={preview} alt="رمز الدفع" className="w-full rounded-lg" /> : <span className="py-8 text-[11px] text-slate-400">لم يُرفع رمز بعد<br />اضغط لاختيار الصورة</span>}
             <input className="sr-only" type="file" accept="image/jpeg,image/png,image/webp" onChange={event => pick(event.target.files?.[0])} />
@@ -494,6 +495,7 @@ function PaymentSettings() {
             <label className="block text-xs font-bold text-slate-600">المزوّد<input value={provider} onChange={event => setProvider(event.target.value)} disabled={isLoading} className="form-field mt-1.5" placeholder="شام كاش" /></label>
             <label className="block text-xs font-bold text-slate-600">اسم صاحب المحفظة<input value={walletName} onChange={event => setWalletName(event.target.value)} disabled={isLoading} className="form-field mt-1.5" placeholder="كما يظهر في التطبيق" /></label>
             <label className="block text-xs font-bold text-slate-600">معرّف المحفظة<input dir="ltr" value={walletId} onChange={event => setWalletId(event.target.value)} disabled={isLoading} className="form-field mt-1.5 font-mono" placeholder="fa56242f…" /></label>
+            <label className="block text-xs font-bold text-slate-600">سعر الصرف (ل.س لكل 1$)<input dir="ltr" inputMode="numeric" value={sypRate} onChange={event => setSypRate(event.target.value.replace(/[^0-9]/g, ""))} disabled={isLoading} className="form-field mt-1.5 font-mono" placeholder="13200" /><span className="mt-1 block text-[10px] font-normal text-slate-400">يُعرض للعميل مبلغ الدفعة الأولى بالليرة بهذا السعر داخل خطوة الدفع. حدّثه عند تغيّر السوق.</span></label>
             <button type="submit" disabled={save.isPending || isLoading} className="button-dark h-11 rounded-xl px-6 text-sm disabled:opacity-50">{save.isPending ? "جارٍ الحفظ…" : "حفظ"}</button>
           </div>
         </form>

@@ -106,7 +106,8 @@ export async function getInstallmentOrders() {
 export async function createIncompleteCheckoutLead(lead: InsertIncompleteCheckoutLead) {
   const db = await getDb();
   if (!db) throw new Error("قاعدة البيانات غير متاحة حالياً");
-  await db.insert(incompleteCheckoutLeads).values(lead);
+  const [result] = await db.insert(incompleteCheckoutLeads).values(lead);
+  return result.insertId;
 }
 
 export async function getIncompleteCheckoutLeads(): Promise<IncompleteCheckoutLead[]> {

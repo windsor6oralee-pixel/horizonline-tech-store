@@ -36,6 +36,8 @@ const orderInput = z.object({
   phone: z.string().trim().min(8).max(32),
   alternatePhone: z.string().trim().min(8).max(32).optional(),
   paymentMethod: z.literal("sham_cash"),
+  /** Follow-up row opened when the customer pressed "pay"; closed as converted once the order lands. */
+  paymentLeadId: z.number().int().positive().optional(),
   paymentProof: z.object({
     fileName: z.string().trim().min(1).max(160),
     mimeType: z.enum(["image/jpeg", "image/png", "image/webp", "application/pdf"]),
@@ -163,6 +165,7 @@ export const ordersRouter = router({
       paymentProofReviewedAt: proofStatus === "pending" ? null : new Date(),
     });
 
+    if (input.paymentLeadId) { try { await updateIncompleteCheckoutLeadStatus(input.paymentLeadId, "converted"); } catch { /* the order is what matters */ } }
     return { orderNumber, plan, status: "new" as const };
   }),
 

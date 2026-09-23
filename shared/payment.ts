@@ -3,6 +3,13 @@ export const PAYMENT_SETTING_KEYS = {
   walletName: "paymentWalletName",
   walletId: "paymentWalletId",
   provider: "paymentWalletProvider",
+  /** Syrian pounds per US dollar used to show the first payment in the currency Sham Cash actually moves. */
+  sypRate: "paymentSypRate",
 } as const;
+
+/** Short reference the customer can write in the transfer note, derived from the follow-up row opened when they pressed "pay". */
+export const paymentReferenceFor = (leadId: number) => `HZ-P${String(leadId).padStart(4, "0")}`;
+
+export const formatSyp = (usd: number, rate: number) => new Intl.NumberFormat("ar-SY", { maximumFractionDigits: 0 }).format(Math.round(usd * rate));
 
 export const PAYMENT_STATUS_LABELS = { pending: "قيد المراجعة", approved: "مؤكَّدة", rejected: "مرفوضة" } as const;

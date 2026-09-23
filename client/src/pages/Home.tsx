@@ -11,6 +11,7 @@ import StoreFooter from "@/components/StoreFooter";
 import PaymentPolicyNotice from "@/components/PaymentPolicyNotice";
 import DeliveryRulesBento from "@/components/DeliveryRulesBento";
 import { usePresence } from "@/hooks/usePresence";
+import { readCheckoutDraft } from "@/lib/checkoutDraft";
 import { BrandLockup } from "@/components/BrandLogo";
 
 type CatalogProduct = SelectedProduct & { demo?: boolean };
@@ -76,6 +77,9 @@ export default function Home() {
   // CheckoutWizard reports its own step, so the storefront stays quiet while it is open.
   usePresence(checkoutProduct ? null : details ? "product" : "home", details?.title ?? null);
   const products: CatalogProduct[] = liveProducts.length ? liveProducts : demoProducts;
+  // A payment that was started but not finished: offer to pick it up with the same reference.
+  const [draft] = useState(() => (typeof window === "undefined" ? null : readCheckoutDraft()));
+  const draftProduct = draft ? products.find(product => product.handle === draft.handle) ?? null : null;
   const filteredProducts = brand === "الكل" ? products : products.filter(product => brandOf(product) === brand);
 
   const beginCheckout = async (product: CatalogProduct) => {
@@ -124,6 +128,7 @@ export default function Home() {
       {menuOpen && <div className="border-t border-white/10 px-5 py-4 md:hidden"><div className="flex flex-col gap-3"><a className="nav-link" href="#catalog">الأجهزة</a><a className="nav-link" href="#installment">التقسيط</a><a className="nav-link" href="#delivery">التوصيل</a><a className="nav-link" href="/account">حسابي</a></div></div>}
     </header>
     <main id="top">
+      {draftProduct && !checkoutProduct && <div className="bg-[#fff9e8] border-b border-[#f1d38a]"><div className="mx-auto flex max-w-7xl flex-col gap-3 px-5 py-3 sm:flex-row sm:items-center sm:justify-between"><p className="text-xs leading-6 text-[#5c4a10]"><b className="text-[#0a2342]">لديك طلب لم يكتمل دفعه:</b> {draft?.productTitle}{draft?.reference ? <> · المرجع <span className="font-mono" dir="ltr">{draft.reference}</span></> : null} — إن كنت حوّلت الدفعة فأرفق الإيصال الآن، وإن لم تحوّل بعد فأكمل من حيث توقفت.</p><button onClick={() => setCheckoutProduct(draftProduct)} className="button-dark h-10 shrink-0 rounded-xl px-5 text-xs">أكمل الدفع الآن</button></div></div>}
       <section className="day-hero relative overflow-hidden"><div className="absolute left-[8%] top-10 h-64 w-64 rounded-full bg-[#8ad9e3]/20 blur-3xl" />
         <div className="mx-auto grid max-w-7xl gap-12 px-5 pb-16 pt-16 lg:grid-cols-[1.15fr_.85fr] lg:items-center lg:pb-24 lg:pt-24">
           <div className="relative z-10"><div className="inline-flex items-center gap-2 rounded-full border border-[#8ad9e3]/30 bg-[#8ad9e3]/10 px-3 py-2 text-xs font-extrabold text-[#c6ecf3]"><Sparkles className="h-3.5 w-3.5" />تقسيط مرن بلا فوائد</div><h1 className="mt-6 text-4xl font-extrabold leading-[1.28] tracking-tight text-white sm:text-5xl lg:text-6xl">التقنية التي تريدها.<br /><span className="text-[#8ad9e3]">بطريقة دفع تناسبك.</span></h1><p className="mt-6 max-w-xl text-base leading-8 text-[#c9d7e1]">اختر هاتفك من Apple أو Samsung أو Huawei، حدّد هديتك، ثم وزّع المبلغ حتى 48 شهراً دون فوائد.</p><div className="mt-8 flex flex-wrap gap-3"><a href="#catalog" className="button-primary inline-flex h-12 items-center gap-2 rounded-xl px-6 text-sm"><ShoppingBag className="h-4 w-4" />تصفح الأجهزة<ArrowLeft className="h-4 w-4" /></a><a href="#installment" className="inline-flex h-12 items-center gap-2 rounded-xl border border-white/20 px-5 text-sm font-bold text-white hover:bg-white/10"><CircleDollarSign className="h-4 w-4" />احسب قسطك</a></div><div className="mt-12 grid max-w-xl grid-cols-3 border-t border-white/10 pt-6 text-white"><Metric value="100$" label="أقل دفعة" /><Metric value="0%" label="فوائد تقسيط" /><Metric value="48" label="شهراً كحد أقصى" /></div></div>

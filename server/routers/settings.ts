@@ -1,7 +1,8 @@
 import { SHAM_CASH_WHATSAPP_NUMBER, WHATSAPP_SETTING_KEY, isValidWhatsAppNumber, normalizeWhatsAppNumber } from "@shared/whatsapp";
-import { PAYMENT_SETTING_KEYS } from "@shared/payment";
+import { PAYMENT_SETTING_KEYS, paymentReferenceFor } from "@shared/payment";
+import { SYRIAN_POUND_PER_USD } from "@shared/storeConstants";
 import { z } from "zod";
-import { getStoredFile } from "../db";
+import { createIncompleteCheckoutLead, getStoredFile } from "../db";
 import { storagePut } from "../storage";
 import { decodeDataUrl } from "../uploads";
 import { getStoreSetting, listTables, migrationState, setStoreSetting } from "../db";
@@ -12,11 +13,13 @@ export async function resolveWhatsAppNumber(): Promise<string> {
 }
 
 export async function readPaymentSettings() {
-  const [qrFileKey, walletName, walletId, provider] = await Promise.all([
+  const [qrFileKey, walletName, walletId, provider, rate] = await Promise.all([
     getStoreSetting(PAYMENT_SETTING_KEYS.qrFileKey), getStoreSetting(PAYMENT_SETTING_KEYS.walletName),
     getStoreSetting(PAYMENT_SETTING_KEYS.walletId), getStoreSetting(PAYMENT_SETTING_KEYS.provider),
+    getStoreSetting(PAYMENT_SETTING_KEYS.sypRate),
   ]);
-  return { qrFileKey, walletName: walletName ?? "", walletId: walletId ?? "", provider: provider ?? "شام كاش" };
+  const sypRate = Number(rate) > 0 ? Number(rate) : SYRIAN_POUND_PER_USD;
+  return { qrFileKey, walletName: walletName ?? "", walletId: walletId ?? "", provider: provider ?? "شام كاش", sypRate };
 }
 
 /** The QR as a data URL, so it travels only inside authenticated responses and never sits on a public path. */
@@ -38,14 +41,36 @@ function throttled(ip: string, limit = 20, windowMs = 60 * 60 * 1000): boolean {
 }
 
 export const settingsRouter = router({
-  /** Wallet details for step 5 of checkout. Only reachable once the order form carries a name, phone and province. */
+  /**
+   * Wallet details for step 5 of checkout. Only reachable once the order form carries a name, phone and province.
+   * Pressing "pay" also opens a follow-up row, so a customer who transfers money and then loses the page has a
+   * written trace (name, phone, product, amount) and a reference to quote — the admin can match the wallet notification to it.
+   */
   paymentGate: publicProcedure
-    .input(z.object({ fullName: z.string().trim().min(3).max(160), phone: z.string().trim().min(8).max(32), province: z.string().trim().min(2).max(80) }))
+    .input(z.object({
+      fullName: z.string().trim().min(3).max(160), phone: z.string().trim().min(8).max(32), province: z.string().trim().min(2).max(80),
+      productTitle: z.string().trim().min(2).max(255).optional(), productHandle: z.string().trim().max(255).optional(),
+      downPaymentUsd: z.union([z.literal(100), z.literal(150), z.literal(300)]).optional(), months: z.number().int().min(12).max(48).optional(),
+      /** A reference already issued in this browser: re-use it instead of opening a second follow-up row. */
+      leadId: z.number().int().positive().optional(),
+    }))
     .mutation(async ({ input, ctx }) => {
       const ip = String(ctx.req.headers["x-forwarded-for"] ?? ctx.req.socket?.remoteAddress ?? "").split(",")[0].trim();
       if (throttled(ip)) throw new Error("محاولات كثيرة — حاول بعد قليل");
       const settings = await readPaymentSettings();
-      return { provider: settings.provider, walletName: settings.walletName, walletId: settings.walletId, qrDataUrl: await readPaymentQrDataUrl(), customer: input.fullName };
+      let leadId = input.leadId ?? null;
+      if (!leadId && input.productTitle && input.downPaymentUsd && input.months) {
+        try {
+          leadId = await createIncompleteCheckoutLead({
+            productTitle: input.productTitle, productHandle: input.productHandle ?? null, customerName: input.fullName, phone: input.phone, province: input.province,
+            downPaymentUsd: input.downPaymentUsd.toFixed(2), months: input.months, checkoutStep: "payment", status: "new", source: "form", consentAt: new Date(),
+          });
+        } catch { leadId = null; }
+      }
+      return {
+        provider: settings.provider, walletName: settings.walletName, walletId: settings.walletId, sypRate: settings.sypRate,
+        qrDataUrl: await readPaymentQrDataUrl(), customer: input.fullName, leadId, reference: leadId ? paymentReferenceFor(leadId) : null,
+      };
     }),
 
   paymentSettings: adminProcedure.query(async () => ({ ...(await readPaymentSettings()), qrDataUrl: await readPaymentQrDataUrl() })),
@@ -55,6 +80,7 @@ export const settingsRouter = router({
       walletName: z.string().trim().max(160),
       walletId: z.string().trim().max(160),
       provider: z.string().trim().min(1).max(60),
+      sypRate: z.number().int().min(100).max(1_000_000).optional(),
       qr: z.object({ fileName: z.string().trim().min(1).max(160), mimeType: z.enum(["image/jpeg", "image/png", "image/webp"]), dataUrl: z.string().min(20).max(3_000_000) }).optional(),
     }))
     .mutation(async ({ input }) => {
@@ -66,6 +92,7 @@ export const settingsRouter = router({
       await setStoreSetting(PAYMENT_SETTING_KEYS.walletName, input.walletName);
       await setStoreSetting(PAYMENT_SETTING_KEYS.walletId, input.walletId);
       await setStoreSetting(PAYMENT_SETTING_KEYS.provider, input.provider);
+      if (input.sypRate) await setStoreSetting(PAYMENT_SETTING_KEYS.sypRate, String(input.sypRate));
       return { success: true } as const;
     }),
 
@@ -76,7 +103,7 @@ export const settingsRouter = router({
     try { const url = new URL(process.env.DATABASE_URL ?? ""); databaseHost = `${url.hostname}:${url.port || "3306"}${url.pathname}`; } catch { /* unset or malformed */ }
     return { migration: migrationState, tables, tablesError, cwd: process.cwd(), databaseHost };
   }),
-  public: publicProcedure.query(async () => ({ whatsappNumber: await resolveWhatsAppNumber() })),
+  public: publicProcedure.query(async () => ({ whatsappNumber: await resolveWhatsAppNumber(), sypRate: (await readPaymentSettings()).sypRate })),
   updateWhatsApp: adminProcedure
     .input(z.object({ whatsappNumber: z.string().trim().min(1).max(32) }))
     .mutation(async ({ input }) => {
