@@ -2,7 +2,7 @@ import { useAuth } from "@/_core/hooks/useAuth";
 import DashboardLayout from "@/components/DashboardLayout";
 import StoreFooter from "@/components/StoreFooter";
 import { trpc } from "@/lib/trpc";
-import { CalendarClock, CheckCircle2, ClipboardList, Copy, ExternalLink, FileText, IdCard, Laptop, Loader2, MapPin, MessageCircle, PhoneCall, ShieldAlert, Smartphone, Tablet, Truck, Users, X, XCircle } from "lucide-react";
+import { CalendarClock, CheckCircle2, ClipboardList, Copy, ExternalLink, FileText, IdCard, Laptop, Link2, Loader2, MapPin, MessageCircle, MessagesSquare, PhoneCall, Send, ShieldAlert, Smartphone, Tablet, Truck, Users, X, XCircle } from "lucide-react";
 import { FormEvent, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { formatWhatsAppNumber, normalizeWhatsAppNumber } from "@shared/whatsapp";
@@ -25,6 +25,9 @@ export default function Admin() {
   const approved = orders.filter(order => order.status === "approved").length;
   const pendingProofs = orders.filter(order => order.paymentProofStatus === "pending").length;
   const newLeads = incompleteLeads.filter(lead => lead.status === "new").length;
+  const { data: threads = [] } = trpc.conversations.list.useQuery(undefined, { enabled: isAdmin, refetchInterval: 30_000 });
+  const unreadByLead = new Map(threads.filter(t => t.leadId).map(t => [t.leadId as number, t.unread]));
+  const unreadTotal = threads.reduce((sum, t) => sum + t.unread, 0);
   const [openLead, setOpenLead] = useState<(typeof incompleteLeads)[number] | null>(null);
   const selectedLead = openLead ? incompleteLeads.find(lead => lead.id === openLead.id) ?? openLead : null;
 
@@ -34,7 +37,7 @@ export default function Admin() {
       <div className="mt-7 grid gap-4 md:grid-cols-4"><Stat icon={ClipboardList} value={total} label="إجمالي الطلبات" /><Stat icon={CheckCircle2} value={approved} label="طلبات معتمدة" tone="green" /><Stat icon={FileText} value={pendingProofs} label="إيصالات بانتظار المراجعة" tone="yellow" /><Stat icon={PhoneCall} value={newLeads} label="متابعات جديدة" tone="blue" /></div>
       <LiveVisitors />
       <WhatsAppSettings />
-      <section className="mt-7 overflow-hidden rounded-[25px] border border-[#d8e7e6] bg-[#fbfefe]"><div className="flex flex-col gap-2 border-b border-[#e4efed] px-6 py-5 sm:flex-row sm:items-center sm:justify-between"><div><h2 className="font-extrabold text-[#0a2342]">متابعات ومحادثات واتساب</h2><p className="mt-1 text-xs text-slate-500">عملاء بدأوا الطلب ولم يكملوه: إمّا حفظوا بياناتهم بموافقتهم، أو انتقلوا للمحادثة عبر واتساب.</p></div><span className="rounded-full bg-[#e8f3fa] px-3 py-1 text-xs font-bold text-[#1f6f96]">{incompleteLeads.length} متابعة · منها {incompleteLeads.filter(lead => lead.source === "whatsapp").length} واتساب</span></div>{leadsLoading ? <div className="grid min-h-32 place-items-center"><Loader2 className="h-5 w-5 animate-spin text-[#1f6f96]" /></div> : incompleteLeads.length === 0 ? <div className="px-6 py-10 text-center"><PhoneCall className="mx-auto h-8 w-8 text-slate-300" /><p className="mt-3 text-sm font-bold text-slate-500">لا توجد متابعات بعد.</p></div> : <div className="grid gap-3 p-4 md:grid-cols-2">{incompleteLeads.map(lead => <article key={lead.id} onClick={() => setOpenLead(lead)} className="cursor-pointer rounded-2xl border border-slate-200 bg-white p-4 transition hover:-translate-y-0.5 hover:border-[#8ad9e3] hover:shadow-md"><div className="flex items-start justify-between gap-3"><div><p className="font-extrabold text-[#0a2342]">{lead.customerName}</p><p className="mt-1 text-xs text-slate-500">{[lead.phone, lead.province].filter(Boolean).join(" · ") || "راسلك من رقمه على واتساب"}</p></div>{lead.source === "whatsapp" ? <span className="flex shrink-0 items-center gap-1 rounded-full bg-[#e7f9ee] px-2 py-1 text-[10px] font-extrabold text-[#128c45]"><MessageCircle className="h-3 w-3" />محادثة واتساب</span> : <span className="shrink-0 rounded-full bg-[#eff5fa] px-2 py-1 text-[10px] font-extrabold text-[#1f6f96]">بموافقة العميل</span>}</div><p className="mt-4 font-bold text-slate-700">{lead.productTitle}</p><p className="mt-1 text-xs text-slate-500">دفعة {lead.downPaymentUsd}$ · {lead.months} شهر · {new Date(lead.createdAt).toLocaleDateString("ar-SY")}</p><div className="mt-4 flex items-center justify-between gap-3"><span className="text-[11px] font-bold text-slate-400">{lead.source === "whatsapp" ? `توقف عند: ${leadStepLabels[lead.checkoutStep]}` : "لا توجد وثائق ضمن هذا السجل"}</span><select onClick={event => event.stopPropagation()} className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-[11px] font-bold text-slate-700" value={lead.status} onChange={event => updateLead.mutate({ id: lead.id, status: event.target.value as keyof typeof leadStatusLabels })} disabled={updateLead.isPending}>{Object.entries(leadStatusLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></div></article>)}</div>}</section>
+      <section className="mt-7 overflow-hidden rounded-[25px] border border-[#d8e7e6] bg-[#fbfefe]"><div className="flex flex-col gap-2 border-b border-[#e4efed] px-6 py-5 sm:flex-row sm:items-center sm:justify-between"><div><h2 className="font-extrabold text-[#0a2342]">متابعات ومحادثات واتساب</h2><p className="mt-1 text-xs text-slate-500">عملاء بدأوا الطلب ولم يكملوه: إمّا حفظوا بياناتهم بموافقتهم، أو انتقلوا للمحادثة عبر واتساب.</p></div><span className="rounded-full bg-[#e8f3fa] px-3 py-1 text-xs font-bold text-[#1f6f96]">{incompleteLeads.length} متابعة · منها {incompleteLeads.filter(lead => lead.source === "whatsapp").length} واتساب</span>{unreadTotal > 0 && <span className="rounded-full bg-[#0a2342] px-3 py-1 text-xs font-bold text-[#8ad9e3]">{unreadTotal} رسالة غير مقروءة</span>}</div>{leadsLoading ? <div className="grid min-h-32 place-items-center"><Loader2 className="h-5 w-5 animate-spin text-[#1f6f96]" /></div> : incompleteLeads.length === 0 ? <div className="px-6 py-10 text-center"><PhoneCall className="mx-auto h-8 w-8 text-slate-300" /><p className="mt-3 text-sm font-bold text-slate-500">لا توجد متابعات بعد.</p></div> : <div className="grid gap-3 p-4 md:grid-cols-2">{incompleteLeads.map(lead => <article key={lead.id} onClick={() => setOpenLead(lead)} className="cursor-pointer rounded-2xl border border-slate-200 bg-white p-4 transition hover:-translate-y-0.5 hover:border-[#8ad9e3] hover:shadow-md"><div className="flex items-start justify-between gap-3"><div><p className="font-extrabold text-[#0a2342]">{lead.customerName}</p><p className="mt-1 text-xs text-slate-500">{[lead.phone, lead.province].filter(Boolean).join(" · ") || "راسلك من رقمه على واتساب"}</p></div><div className="flex shrink-0 flex-col items-end gap-1.5">{(unreadByLead.get(lead.id) ?? 0) > 0 && <span className="flex items-center gap-1 rounded-full bg-[#0a2342] px-2 py-1 text-[10px] font-extrabold text-[#8ad9e3]"><MessagesSquare className="h-3 w-3" />{unreadByLead.get(lead.id)} رسالة جديدة</span>}{lead.source === "whatsapp" ? <span className="flex shrink-0 items-center gap-1 rounded-full bg-[#e7f9ee] px-2 py-1 text-[10px] font-extrabold text-[#128c45]"><MessageCircle className="h-3 w-3" />محادثة واتساب</span> : <span className="shrink-0 rounded-full bg-[#eff5fa] px-2 py-1 text-[10px] font-extrabold text-[#1f6f96]">بموافقة العميل</span>}</div></div><p className="mt-4 font-bold text-slate-700">{lead.productTitle}</p><p className="mt-1 text-xs text-slate-500">دفعة {lead.downPaymentUsd}$ · {lead.months} شهر · {new Date(lead.createdAt).toLocaleDateString("ar-SY")}</p><div className="mt-4 flex items-center justify-between gap-3"><span className="text-[11px] font-bold text-slate-400">{lead.source === "whatsapp" ? `توقف عند: ${leadStepLabels[lead.checkoutStep]}` : "لا توجد وثائق ضمن هذا السجل"}</span><select onClick={event => event.stopPropagation()} className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-[11px] font-bold text-slate-700" value={lead.status} onChange={event => updateLead.mutate({ id: lead.id, status: event.target.value as keyof typeof leadStatusLabels })} disabled={updateLead.isPending}>{Object.entries(leadStatusLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></div></article>)}</div>}</section>
       <section className="mt-7 overflow-hidden rounded-[25px] border border-slate-200 bg-white">
         <div className="flex items-center justify-between border-b border-slate-100 px-6 py-5"><h2 className="font-extrabold text-[#0a2342]">سجل الطلبات</h2><span className="text-xs font-bold text-slate-400">{total} طلب</span></div>
         {isLoading ? <div className="grid min-h-56 place-items-center"><Loader2 className="h-6 w-6 animate-spin text-[#1f6f96]" /></div> : orders.length === 0 ? <div className="px-6 py-20 text-center"><ClipboardList className="mx-auto h-9 w-9 text-slate-300" /><p className="mt-4 text-sm font-bold text-slate-500">لا توجد طلبات مسجلة بعد.</p></div> : <div className="overflow-x-auto"><table className="w-full min-w-[1340px] text-right"><thead className="bg-slate-50 text-xs text-slate-500"><tr><th className="px-6 py-4 font-bold">الطلب</th><th className="px-4 py-4 font-bold">العميل</th><th className="px-4 py-4 font-bold">الهاتف والتقسيط</th><th className="px-4 py-4 font-bold">الهوية والالتزامات</th><th className="px-4 py-4 font-bold">إثبات شام كاش</th><th className="px-4 py-4 font-bold">التوصيل</th><th className="px-4 py-4 font-bold">الحالة</th></tr></thead><tbody>{orders.map(order => <tr key={order.id} className="border-t border-slate-100 align-top"><td className="px-6 py-5"><p className="font-mono text-xs font-bold text-[#1f6f96]">{order.orderNumber}</p><p className="mt-1 text-xs text-slate-400">{new Date(order.createdAt).toLocaleDateString("ar-SY")}</p></td><td className="px-4 py-5"><p className="font-bold text-slate-700">{order.customerName}</p><p className="mt-1 flex items-center gap-1 text-xs text-slate-500"><PhoneCall className="h-3 w-3" />{order.phone}</p><p className="mt-1 text-xs text-slate-400">{order.age} سنة · {order.jobNature}</p></td><td className="px-4 py-5"><p className="font-bold text-slate-700">{order.productTitle}</p><p className="mt-1 text-xs text-slate-500">دفعة {order.downPaymentUsd}$ · {order.months} شهر</p><p className="text-xs font-bold text-[#1f6f96]">{order.monthlyInstallmentUsd}$ شهرياً</p></td><td className="px-4 py-5"><IdentityCell order={order} /></td><td className="px-4 py-5"><PaymentProofCell order={order} busy={reviewProof.isPending} onReview={decision => reviewProof.mutate({ id: order.id, decision })} /></td><td className="px-4 py-5"><p className="font-bold text-slate-700">{order.province}، {order.area}</p><p className="mt-1 text-xs text-slate-500">{order.recipientName} · {order.landmark || "لا يوجد معلم"}</p></td><td className="px-4 py-5"><select className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700" value={order.status} onChange={event => update.mutate({ id: order.id, status: event.target.value as keyof typeof statusLabels })} disabled={update.isPending}>{Object.entries(statusLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></td></tr>)}</tbody></table></div>}
@@ -170,6 +173,8 @@ function LeadDetail({ lead, close, setStatus, saving }: { lead: Lead; close: () 
           <button onClick={copyPhone} className="flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 text-xs font-extrabold text-slate-600 hover:bg-slate-50"><Copy className="h-4 w-4" />نسخ الرقم</button>
         </div>}
 
+        <LeadConversation lead={lead} />
+
         <div>
           <p className="text-xs font-extrabold text-slate-500">حالة المتابعة</p>
           <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
@@ -193,6 +198,74 @@ function LeadDetail({ lead, close, setStatus, saving }: { lead: Lead; close: () 
         </p>
       </div>
     </section>
+  </div>;
+}
+
+function LeadConversation({ lead }: { lead: Lead }) {
+  const utils = trpc.useUtils();
+  const [body, setBody] = useState("");
+  const { data: threads = [] } = trpc.conversations.list.useQuery();
+  const thread = threads.find(t => t.leadId === lead.id) ?? null;
+  const { data: messages = [] } = trpc.conversations.thread.useQuery(
+    { id: thread?.id ?? 0, markRead: true },
+    { enabled: Boolean(thread), refetchInterval: 20_000 },
+  );
+  const open = trpc.conversations.openForLead.useMutation({
+    onSuccess: () => utils.conversations.list.invalidate(),
+    onError: error => toast.error(error.message || "تعذر فتح المحادثة"),
+  });
+  const reply = trpc.conversations.replyAsAdmin.useMutation({
+    onSuccess: () => { setBody(""); utils.conversations.thread.invalidate(); utils.conversations.list.invalidate(); },
+    onError: error => toast.error(error.message || "تعذر إرسال الرسالة"),
+  });
+
+  const link = thread ? `${window.location.origin}/t/${thread.token}` : "";
+  const invite = `مرحباً ${lead.customerName}، هذه صفحة طلبك الخاصة لدى Horizonline Tech Store — تابع طلبك وراسلنا منها مباشرة:\n${link}`;
+  const copyLink = async () => {
+    try { await navigator.clipboard.writeText(link); toast.success("نُسخ الرابط"); }
+    catch { toast.error("تعذر النسخ"); }
+  };
+
+  if (!thread) {
+    return <div className="rounded-2xl border border-dashed border-[#cadce9] bg-[#fbfdfe] p-4 text-center">
+      <MessagesSquare className="mx-auto h-6 w-6 text-[#1f6f96]" />
+      <p className="mt-2 text-xs leading-6 text-slate-500">افتح صفحة خاصة بهذا العميل يراسلك منها مباشرة، وأرسل له رابطها عبر واتساب.</p>
+      <button
+        onClick={() => open.mutate({ leadId: lead.id, customerName: lead.customerName, phone: lead.phone, productTitle: lead.productTitle })}
+        disabled={open.isPending}
+        className="button-dark mt-3 h-10 rounded-xl px-5 text-xs disabled:opacity-50"
+      >{open.isPending ? "جارٍ الفتح…" : "فتح محادثة مع العميل"}</button>
+    </div>;
+  }
+
+  return <div className="rounded-2xl border border-[#d6e5f0] bg-[#fbfdfe] p-4">
+    <div className="flex flex-wrap items-center justify-between gap-2">
+      <p className="flex items-center gap-1.5 text-xs font-extrabold text-[#0a2342]"><MessagesSquare className="h-4 w-4 text-[#1f6f96]" />المحادثة</p>
+      <div className="flex gap-2">
+        <button onClick={copyLink} className="flex h-8 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 text-[10px] font-extrabold text-slate-600 hover:bg-slate-50"><Link2 className="h-3.5 w-3.5" />نسخ الرابط</button>
+        {lead.phone && <a href={`${whatsAppChatLink(toInternationalDigits(lead.phone))}?text=${encodeURIComponent(invite)}`} target="_blank" rel="noopener noreferrer" className="flex h-8 items-center gap-1.5 rounded-lg bg-[#25D366] px-2.5 text-[10px] font-extrabold text-white hover:brightness-95"><MessageCircle className="h-3.5 w-3.5" />أرسل الرابط بواتساب</a>}
+      </div>
+    </div>
+
+    <div className="mt-3 max-h-56 space-y-2 overflow-y-auto">
+      {messages.length === 0
+        ? <p className="py-6 text-center text-[11px] text-slate-400">لا توجد رسائل بعد — اكتب أول رسالة وسيراها عند فتح الرابط.</p>
+        : messages.map(message => (
+            <div key={message.id} className={`max-w-[85%] rounded-xl px-3 py-2 text-[11px] leading-5 ${message.sender === "admin" ? "mr-auto bg-[#0a2342] text-white" : "border border-slate-200 bg-white text-[#0a2342]"}`}>
+              <p className="whitespace-pre-wrap">{message.body}</p>
+              <time className={`mt-1 block text-[9px] ${message.sender === "admin" ? "text-[#8ab4cc]" : "text-slate-400"}`}>
+                {message.sender === "admin" ? "أنت" : lead.customerName} · {new Date(message.createdAt).toLocaleString("ar-SY", { dateStyle: "short", timeStyle: "short" })}
+              </time>
+            </div>
+          ))}
+    </div>
+
+    <form onSubmit={event => { event.preventDefault(); if (body.trim()) reply.mutate({ id: thread.id, body }); }} className="mt-3 flex items-end gap-2">
+      <textarea value={body} onChange={event => setBody(event.target.value)} rows={2} maxLength={2000} placeholder="اكتب رسالتك للعميل…" className="form-field h-auto flex-1 resize-none py-2 text-xs leading-5" />
+      <button type="submit" disabled={reply.isPending || !body.trim()} className="button-dark grid h-10 w-10 shrink-0 place-items-center rounded-xl disabled:opacity-50" aria-label="إرسال">
+        {reply.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+      </button>
+    </form>
   </div>;
 }
 

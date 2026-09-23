@@ -1,6 +1,6 @@
 import { and, desc, eq, gte, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { IncompleteCheckoutLead, InsertIncompleteCheckoutLead, InsertInstallmentOrder, InsertUser, incompleteCheckoutLeads, installmentOrders, storeSettings, storedFiles, users, visitorSessions } from "../drizzle/schema";
+import { IncompleteCheckoutLead, InsertIncompleteCheckoutLead, InsertInstallmentOrder, InsertUser, incompleteCheckoutLeads, installmentOrders, conversationMessages, conversations, storeSettings, storedFiles, users, visitorSessions } from "../drizzle/schema";
 import { ENV } from './_core/env';
 import { migrate } from "drizzle-orm/mysql2/migrator";
 import path from "path";
@@ -286,4 +286,61 @@ export async function recordWhatsAppContact(contact: {
     return;
   }
   await db.insert(incompleteCheckoutLeads).values({ ...row, status: "new", consentAt: null });
+}
+
+export async function findConversationByLead(leadId: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const rows = await db.select().from(conversations).where(eq(conversations.leadId, leadId)).limit(1);
+  return rows[0] ?? null;
+}
+
+export async function createConversation(input: { token: string; leadId: number | null; orderId: number | null; customerName: string; phone: string | null; productTitle: string }) {
+  const db = await getDb();
+  if (!db) throw new Error("قاعدة البيانات غير متاحة حالياً");
+  await db.insert(conversations).values(input);
+  const rows = await db.select().from(conversations).where(eq(conversations.token, input.token)).limit(1);
+  return rows[0]!;
+}
+
+export async function getConversationByToken(token: string) {
+  const db = await getDb();
+  if (!db) return null;
+  const rows = await db.select().from(conversations).where(eq(conversations.token, token)).limit(1);
+  return rows[0] ?? null;
+}
+
+export async function listConversationMessages(conversationId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(conversationMessages)
+    .where(eq(conversationMessages.conversationId, conversationId))
+    .orderBy(conversationMessages.createdAt);
+}
+
+export async function addConversationMessage(input: { conversationId: number; sender: "admin" | "customer"; body: string }) {
+  const db = await getDb();
+  if (!db) throw new Error("قاعدة البيانات غير متاحة حالياً");
+  await db.insert(conversationMessages).values({ ...input, readByAdmin: input.sender === "admin" ? "yes" : "no" });
+  await db.update(conversations).set({ lastMessageAt: new Date() }).where(eq(conversations.id, input.conversationId));
+}
+
+export async function markConversationRead(conversationId: number) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(conversationMessages).set({ readByAdmin: "yes" })
+    .where(and(eq(conversationMessages.conversationId, conversationId), eq(conversationMessages.sender, "customer")));
+}
+
+/** Threads with the number of customer messages the admin has not read yet. */
+export async function listConversationsWithUnread() {
+  const db = await getDb();
+  if (!db) return [];
+  const threads = await db.select().from(conversations).orderBy(desc(conversations.lastMessageAt));
+  const unread = await db.select({ conversationId: conversationMessages.conversationId, total: sql<number>`count(*)` })
+    .from(conversationMessages)
+    .where(and(eq(conversationMessages.sender, "customer"), eq(conversationMessages.readByAdmin, "no")))
+    .groupBy(conversationMessages.conversationId);
+  const map = new Map(unread.map(row => [row.conversationId, Number(row.total)]));
+  return threads.map(thread => ({ ...thread, unread: map.get(thread.id) ?? 0 }));
 }

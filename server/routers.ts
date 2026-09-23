@@ -3,6 +3,7 @@ import { z } from "zod";
 import { ADMIN_SESSION_COOKIE, createAdminSession, validateAdminCredentials } from "./adminAuth";
 import { commerceRouter } from "./routers/commerce";
 import { ordersRouter } from "./routers/orders";
+import { conversationsRouter } from "./routers/conversations";
 import { presenceRouter } from "./routers/presence";
 import { settingsRouter } from "./routers/settings";
 import { getSessionCookieOptions } from "./_core/cookies";
@@ -41,6 +42,7 @@ export const appRouter = router({
   orders: ordersRouter,
   settings: settingsRouter,
   presence: presenceRouter,
+  conversations: conversationsRouter,
 
   // TODO: add feature routers here, e.g.
   // todo: router({

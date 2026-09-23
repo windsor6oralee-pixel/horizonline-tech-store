@@ -129,3 +129,32 @@ export const visitorSessions = mysqlTable("visitorSessions", {
   lastSeen: timestamp("lastSeen").defaultNow().onUpdateNow().notNull(),
 });
 export type VisitorSession = typeof visitorSessions.$inferSelect;
+
+/**
+ * A private message thread with one customer, opened by the admin from the panel.
+ * The customer reaches it through a secret token in the URL, so no account is needed.
+ */
+export const conversations = mysqlTable("conversations", {
+  id: int("id").autoincrement().primaryKey(),
+  /** Unguessable secret that stands in for a login. */
+  token: varchar("token", { length: 48 }).notNull().unique(),
+  leadId: int("leadId"),
+  orderId: int("orderId"),
+  customerName: varchar("customerName", { length: 160 }).notNull(),
+  phone: varchar("phone", { length: 32 }),
+  productTitle: varchar("productTitle", { length: 255 }).notNull(),
+  closed: mysqlEnum("closed", ["no", "yes"]).default("no").notNull(),
+  lastMessageAt: timestamp("lastMessageAt").defaultNow().notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type Conversation = typeof conversations.$inferSelect;
+
+export const conversationMessages = mysqlTable("conversationMessages", {
+  id: int("id").autoincrement().primaryKey(),
+  conversationId: int("conversationId").notNull(),
+  sender: mysqlEnum("sender", ["admin", "customer"]).notNull(),
+  body: varchar("body", { length: 2000 }).notNull(),
+  readByAdmin: mysqlEnum("readByAdmin", ["no", "yes"]).default("no").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type ConversationMessage = typeof conversationMessages.$inferSelect;
