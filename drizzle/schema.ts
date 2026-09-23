@@ -70,6 +70,8 @@ export const installmentOrders = mysqlTable("installmentOrders", {
   paymentProofUrl: varchar("paymentProofUrl", { length: 512 }),
   paymentProofName: varchar("paymentProofName", { length: 255 }),
   paymentProofMimeType: varchar("paymentProofMimeType", { length: 120 }),
+  /** sha256 of the proof file, so one receipt cannot back two orders. */
+  paymentProofHash: varchar("paymentProofHash", { length: 64 }),
   paymentProofStatus: mysqlEnum("paymentProofStatus", ["pending", "approved", "rejected"]).default("pending").notNull(),
   paymentProofReviewedAt: timestamp("paymentProofReviewedAt"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
@@ -188,6 +190,7 @@ export const customerPayments = mysqlTable("customerPayments", {
   receiptAt: timestamp("receiptAt"),
   recipientName: varchar("recipientName", { length: 160 }),
   receiptAmountUsd: decimal("receiptAmountUsd", { precision: 10, scale: 2 }),
+  fileHash: varchar("fileHash", { length: 64 }),
   verifiedBy: mysqlEnum("verifiedBy", ["auto", "admin"]),
   reviewedAt: timestamp("reviewedAt"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),

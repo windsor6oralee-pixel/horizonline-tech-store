@@ -4,9 +4,10 @@ import { z } from "zod";
 import {
   addConversationMessage, createConversation, createCustomer, createCustomerPayment, customerChatUnlocked,
   findConversationByCustomer, getCustomerById, getCustomerByPhone, getCustomerRecords, linkConversationsToCustomer,
-  listConversationMessages, listCustomerPayments, touchCustomerLogin, transactionRefInUse,
+  listConversationMessages, listCustomerPayments, proofHashInUse, touchCustomerLogin, transactionRefInUse,
 } from "../db";
 import { verifyReceipt } from "../receiptVerifier";
+import { localReceiptProblem, sha256 } from "../imageCheck";
 import { storagePut } from "../storage";
 import { decodeDataUrl, safeFileName } from "../uploads";
 import { readPaymentQrDataUrl, readPaymentSettings } from "./settings";
@@ -110,7 +111,9 @@ export const accountRouter = router({
     const records = await getCustomerRecords(customer.phone);
     const amountUsd = dueAmount(records);
     const payments = await listCustomerPayments(customer.id);
-    const latest = payments[0] ?? null;
+    const orderWithProof = records.orders.find(order => order.paymentProofKey);
+    const latest = payments[0]
+      ?? (orderWithProof ? { status: orderWithProof.paymentProofStatus, note: orderWithProof.paymentProofStatus === "approved" ? "أكّدت الإدارة دفعتك" : null, createdAt: orderWithProof.createdAt, amountUsd: orderWithProof.downPaymentUsd } : null);
     if (!amountUsd) return { hasOrder: false as const, latest: null, chatUnlocked: false };
     const settings = await readPaymentSettings();
     const showQr = !latest || latest.status === "rejected";
@@ -123,7 +126,7 @@ export const accountRouter = router({
       walletId: settings.walletId,
       qrDataUrl: showQr ? await readPaymentQrDataUrl() : null,
       latest: latest ? { status: latest.status, note: latest.note, createdAt: latest.createdAt, amountUsd: latest.amountUsd } : null,
-      chatUnlocked: payments.some(payment => payment.status === "approved"),
+      chatUnlocked: await customerChatUnlocked(customer.id),
     };
   }),
 
@@ -140,6 +143,10 @@ export const accountRouter = router({
       const amountUsd = dueAmount(records);
       if (!amountUsd) throw new Error("لا يوجد طلب مرتبط بحسابك بعد");
       const bytes = decodeDataUrl(input.dataUrl, input.mimeType, 3 * 1024 * 1024, "إثبات الدفع");
+      const problem = localReceiptProblem(bytes, input.mimeType);
+      if (problem) throw new Error(problem);
+      const fileHash = sha256(bytes);
+      if (await proofHashInUse(fileHash)) throw new Error("هذا الإيصال مستخدم من قبل — ارفع إيصال التحويل الخاص بطلبك.");
       const stored = await storagePut(`customer-receipts/${customer.id}/${safeFileName(input.fileName, input.mimeType, "receipt")}`, bytes, input.mimeType);
 
       const settings = await readPaymentSettings();
@@ -159,6 +166,7 @@ export const accountRouter = router({
         receiptAt: result.extracted?.transaction_datetime ? new Date(result.extracted.transaction_datetime + "+03:00") : null,
         recipientName: result.extracted?.recipient_name?.trim() || null,
         receiptAmountUsd: result.extracted ? result.extracted.amount.toFixed(2) : null,
+        fileHash,
       });
       return { status: result.status, note: result.note } as const;
     }),
@@ -166,7 +174,7 @@ export const accountRouter = router({
   sendMessage: customerProcedure
     .input(z.object({ body: z.string().trim().min(1).max(2000) }))
     .mutation(async ({ input, ctx }) => {
-      if (!(await customerChatUnlocked(ctx.customerId))) throw new Error("تُفتح المحادثة بعد التحقق من إيصال الدفعة الأولى");
+      if (!(await customerChatUnlocked(ctx.customerId))) throw new Error("تُفتح المحادثة بعد رفع إيصال دفعة أولى مقبول");
       const conversation = await findConversationByCustomer(ctx.customerId);
       if (!conversation) throw new Error("افتح صفحة حسابك أولاً");
       await addConversationMessage({ conversationId: conversation.id, sender: "customer", body: input.body });

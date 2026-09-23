@@ -129,8 +129,8 @@ function Dashboard() {
           {!data.chatUnlocked ? (
             <div className="mt-3 rounded-2xl border border-dashed border-[#cadce9] bg-white p-6 text-center">
               <Lock className="mx-auto h-6 w-6 text-slate-300" />
-              <p className="mt-2 text-sm font-extrabold text-[#0a2342]">تُفتح المحادثة بعد التحقق من إيصال الدفعة الأولى</p>
-              <p className="mt-1 text-xs leading-6 text-slate-500">ادفع الدفعة إلى محفظة المتجر أعلاه وارفع لقطة عملية التحويل. يُتحقق منها فوراً، وتُفتح المحادثة بعد التأكيد.</p>
+              <p className="mt-2 text-sm font-extrabold text-[#0a2342]">تُفتح المحادثة بعد رفع إيصال الدفعة الأولى</p>
+              <p className="mt-1 text-xs leading-6 text-slate-500">ادفع الدفعة إلى محفظة المتجر أعلاه وارفع لقطة عملية التحويل، وستتمكن من مراسلة الإدارة لمتابعة طلبك.</p>
             </div>
           ) : <>
             <div className="mt-3 space-y-3">
@@ -164,7 +164,7 @@ function PaymentSection() {
   const { data, isLoading } = trpc.account.paymentInfo.useQuery();
   const [file, setFile] = useState<{ fileName: string; mimeType: "image/jpeg" | "image/png" | "image/webp" | "application/pdf"; dataUrl: string } | null>(null);
   const upload = trpc.account.uploadReceipt.useMutation({
-    onSuccess: result => { setFile(null); toast[result.status === "approved" ? "success" : result.status === "rejected" ? "error" : "message"](result.status === "approved" ? "تم التحقق من دفعتك — المحادثة مفتوحة الآن" : result.note || "وصلنا إيصالك"); utils.account.paymentInfo.invalidate(); utils.account.overview.invalidate(); },
+    onSuccess: result => { setFile(null); toast[result.status === "rejected" ? "error" : "success"](result.status === "rejected" ? (result.note || "لم يُقبل الإيصال") : "وصلنا إيصالك — المحادثة مفتوحة الآن وستؤكد الإدارة الدفعة"); utils.account.paymentInfo.invalidate(); utils.account.overview.invalidate(); },
     onError: e => toast.error(e.message || "تعذر رفع الإيصال"),
   });
   const copy = async (value: string, label: string) => {
@@ -194,8 +194,8 @@ function PaymentSection() {
       <div className={`mt-3 flex items-start gap-3 rounded-2xl border p-4 ${latest.status === "approved" ? "border-[#bfe6d0] bg-[#f0faf4]" : "border-[#d6e5f0] bg-[#f2fafd]"}`}>
         <ShieldCheck className={`mt-0.5 h-5 w-5 shrink-0 ${latest.status === "approved" ? "text-[#15915f]" : "text-[#1f6f96]"}`} />
         <div>
-          <b className="block text-sm text-[#0a2342]">{latest.status === "approved" ? "تم التحقق من دفعتك" : "وصلنا إيصالك وهو قيد المراجعة اليدوية"}</b>
-          <p className="mt-1 text-xs leading-6 text-slate-500">${Number(latest.amountUsd).toFixed(0)} · {new Date(latest.createdAt).toLocaleString("ar-SY", { dateStyle: "medium", timeStyle: "short" })}{latest.status === "pending" && (latest.note ? ` — ${latest.note}` : " — سيراجعه الفريق وتُفتح المحادثة بعد التأكيد.")}</p>
+          <b className="block text-sm text-[#0a2342]">{latest.status === "approved" ? "أكّدت الإدارة دفعتك" : "وصلنا إيصالك — بانتظار التأكيد النهائي من الإدارة"}</b>
+          <p className="mt-1 text-xs leading-6 text-slate-500">${Number(latest.amountUsd).toFixed(0)} · {new Date(latest.createdAt).toLocaleString("ar-SY", { dateStyle: "medium", timeStyle: "short" })}{latest.status === "pending" && " — يمكنك مراسلة الإدارة الآن، وستصلك تفاصيل الشحن فور التأكيد."}</p>
           {latest.status === "approved" && <ol className="mt-3 space-y-1.5 text-xs leading-6 text-slate-600">
             <li>1. نجهّز جهازك ونسلّمه لشركة الشحن خلال 24 ساعة.</li>
             <li>2. يتواصل معك مندوب DHL لتأكيد العنوان وموعد التسليم.</li>

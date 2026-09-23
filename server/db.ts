@@ -404,6 +404,7 @@ export async function createCustomerPayment(input: {
   customerId: number; amountUsd: string; fileKey: string; fileName: string; mimeType: string;
   status: "pending" | "approved" | "rejected"; note: string | null; verifiedBy: "auto" | "admin" | null;
   transactionRef: string | null; receiptAt: Date | null; recipientName: string | null; receiptAmountUsd: string | null;
+  fileHash?: string | null;
 }) {
   const db = await getDb();
   if (!db) throw new Error("قاعدة البيانات غير متاحة حالياً");
@@ -425,10 +426,36 @@ export async function listCustomerPayments(customerId: number) {
   return db.select().from(customerPayments).where(eq(customerPayments.customerId, customerId)).orderBy(desc(customerPayments.createdAt));
 }
 
-/** Chat opens only once a receipt has been verified — automatically or by the admin. */
+/**
+ * Chat opens once a receipt is on file that passed the automatic checks (or the admin's review):
+ * either uploaded from the account page, or attached to an order placed with this phone number.
+ */
 export async function customerChatUnlocked(customerId: number): Promise<boolean> {
+  const customer = await getCustomerById(customerId);
+  if (!customer) return false;
   const payments = await listCustomerPayments(customerId);
-  return payments.some(payment => payment.status === "approved");
+  if (payments.some(payment => payment.status !== "rejected")) return true;
+  const { orders } = await getCustomerRecords(customer.phone);
+  return orders.some(order => order.paymentProofKey && order.paymentProofStatus !== "rejected");
+}
+
+export async function proofHashInUse(hash: string): Promise<boolean> {
+  const db = await getDb();
+  if (!db) return false;
+  const [orders, payments] = await Promise.all([
+    db.select({ id: installmentOrders.id }).from(installmentOrders)
+      .where(and(eq(installmentOrders.paymentProofHash, hash), sql`${installmentOrders.paymentProofStatus} <> 'rejected'`)).limit(1),
+    db.select({ id: customerPayments.id }).from(customerPayments)
+      .where(and(eq(customerPayments.fileHash, hash), sql`${customerPayments.status} <> 'rejected'`)).limit(1),
+  ]);
+  return orders.length > 0 || payments.length > 0;
+}
+
+export async function getInstallmentOrderById(id: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const rows = await db.select().from(installmentOrders).where(eq(installmentOrders.id, id)).limit(1);
+  return rows[0] ?? null;
 }
 
 export async function listAllCustomerPayments() {

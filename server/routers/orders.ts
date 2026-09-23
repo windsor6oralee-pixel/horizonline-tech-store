@@ -5,6 +5,11 @@ import { createIncompleteCheckoutLead, createInstallmentOrder, recordWhatsAppCon
 import { calculateInstallmentPlan } from "../installment";
 import { adminProcedure, publicProcedure, router } from "../_core/trpc";
 import { storageGetSignedUrl, storagePut } from "../storage";
+import { localReceiptProblem, sha256 } from "../imageCheck";
+import { verifyReceipt } from "../receiptVerifier";
+import { readPaymentSettings } from "./settings";
+import { addConversationMessage, createConversation, findConversationByCustomer, getCustomerByPhone, getInstallmentOrderById, proofHashInUse } from "../db";
+import { nanoid as newToken } from "nanoid";
 
 const orderInput = z.object({
   productTitle: z.string().trim().min(2).max(255),
@@ -87,6 +92,25 @@ export const ordersRouter = router({
     } catch (error) {
       throw new Error(error instanceof Error ? error.message : "تعذر قراءة الوثائق المرفقة");
     }
+    // Checks that need no external service: a real, legible image that has not been used before.
+    const problem = localReceiptProblem(proofBytes, input.paymentProof.mimeType);
+    if (problem) throw new Error(problem);
+    const proofHash = sha256(proofBytes);
+    if (await proofHashInUse(proofHash)) throw new Error("هذا الإيصال مستخدم في طلب سابق — ارفع إيصال التحويل الخاص بهذا الطلب.");
+
+    // With an API key the receipt is also read and matched; without one it waits for the admin.
+    let proofStatus: "pending" | "approved" | "rejected" = "pending";
+    if (input.paymentProof.mimeType !== "application/pdf") {
+      const settings = await readPaymentSettings();
+      const result = await verifyReceipt({
+        imageBase64: proofBytes.toString("base64"), mimeType: input.paymentProof.mimeType,
+        expectedRecipient: settings.walletName, expectedAmountUsd: input.downPaymentUsd,
+        recordCreatedAt: new Date(Date.now() - 24 * 60 * 60 * 1000), isDuplicateRef: async () => false,
+      });
+      if (result.status === "rejected") throw new Error(result.note ?? "تعذر قبول الإيصال");
+      proofStatus = result.status;
+    }
+
     const receipt = await storagePut(
       `payment-proofs/${orderNumber}/${safeFileName(input.paymentProof.fileName, input.paymentProof.mimeType)}`,
       proofBytes,
@@ -134,8 +158,9 @@ export const ordersRouter = router({
       paymentProofUrl: receipt.url,
       paymentProofName: input.paymentProof.fileName,
       paymentProofMimeType: input.paymentProof.mimeType,
-      paymentProofStatus: "pending",
-      paymentProofReviewedAt: null,
+      paymentProofHash: proofHash,
+      paymentProofStatus: proofStatus,
+      paymentProofReviewedAt: proofStatus === "pending" ? null : new Date(),
     });
 
     return { orderNumber, plan, status: "new" as const };
@@ -211,6 +236,27 @@ export const ordersRouter = router({
     .mutation(async ({ input }) => {
       await updateInstallmentOrderStatus(input.id, input.status);
       return { success: true } as const;
+    }),
+
+  /** Final confirmation of an order's receipt, plus the shipping message to the customer's account thread (if they have one). */
+  approveProofAndNotify: adminProcedure
+    .input(z.object({ id: z.number().int().positive(), message: z.string().trim().min(1).max(2000) }))
+    .mutation(async ({ input }) => {
+      const order = await getInstallmentOrderById(input.id);
+      if (!order) throw new Error("الطلب غير موجود");
+      await reviewInstallmentPaymentProof(order.id, "approved");
+      await updateInstallmentOrderStatus(order.id, "approved");
+      const customer = await getCustomerByPhone(order.phone);
+      if (!customer) return { notified: false } as const;
+      let conversation = await findConversationByCustomer(customer.id);
+      if (!conversation) {
+        conversation = await createConversation({
+          token: newToken(32), leadId: null, orderId: order.id, customerId: customer.id,
+          customerName: customer.name, phone: customer.phone, productTitle: order.productTitle,
+        });
+      }
+      await addConversationMessage({ conversationId: conversation.id, sender: "admin", body: input.message });
+      return { notified: true } as const;
     }),
 
   reviewPaymentProof: adminProcedure

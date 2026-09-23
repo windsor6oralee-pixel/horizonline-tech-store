@@ -27,7 +27,27 @@ export async function readPaymentQrDataUrl(): Promise<string | null> {
   return file ? `data:${file.mimeType};base64,${Buffer.from(file.data).toString("base64")}` : null;
 }
 
+/** Per-IP throttle for the checkout QR: a visitor who has filled the form is the only intended caller. */
+const gateHits = new Map<string, number[]>();
+function throttled(ip: string, limit = 20, windowMs = 60 * 60 * 1000): boolean {
+  const now = Date.now();
+  const hits = (gateHits.get(ip) ?? []).filter(t => now - t < windowMs);
+  hits.push(now); gateHits.set(ip, hits);
+  if (gateHits.size > 5000) gateHits.clear();
+  return hits.length > limit;
+}
+
 export const settingsRouter = router({
+  /** Wallet details for step 5 of checkout. Only reachable once the order form carries a name, phone and province. */
+  paymentGate: publicProcedure
+    .input(z.object({ fullName: z.string().trim().min(3).max(160), phone: z.string().trim().min(8).max(32), province: z.string().trim().min(2).max(80) }))
+    .mutation(async ({ input, ctx }) => {
+      const ip = String(ctx.req.headers["x-forwarded-for"] ?? ctx.req.socket?.remoteAddress ?? "").split(",")[0].trim();
+      if (throttled(ip)) throw new Error("محاولات كثيرة — حاول بعد قليل");
+      const settings = await readPaymentSettings();
+      return { provider: settings.provider, walletName: settings.walletName, walletId: settings.walletId, qrDataUrl: await readPaymentQrDataUrl(), customer: input.fullName };
+    }),
+
   paymentSettings: adminProcedure.query(async () => ({ ...(await readPaymentSettings()), qrDataUrl: await readPaymentQrDataUrl() })),
 
   updatePaymentSettings: adminProcedure

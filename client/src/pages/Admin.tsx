@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import { formatWhatsAppNumber, normalizeWhatsAppNumber } from "@shared/whatsapp";
 import { DEVICE_LABELS, PRESENCE_STEPS, type Device, stepIndex, stepLabel } from "@shared/presence";
 import { PAYMENT_STATUS_LABELS } from "@shared/payment";
-import { DELIVERY_ETAS, shippingMessage } from "@shared/shippingMessage";
+import { DELIVERY_ETAS, etaForProvince, shippingMessage } from "@shared/shippingMessage";
 import { toInternationalDigits, whatsAppChatLink } from "@shared/whatsapp";
 
 const statusLabels = { new: "جديد", under_review: "قيد المراجعة", approved: "معتمد", needs_contact: "يتطلب تواصلاً", cancelled: "ملغي" } as const;
@@ -362,73 +362,73 @@ function Detail({ icon: Icon, label, value, mono }: { icon: typeof PhoneCall; la
 function PendingReceiptsAlert() {
   const utils = trpc.useUtils();
   const { data: receipts = [] } = trpc.payments.list.useQuery(undefined, { refetchInterval: 20_000 });
-  const pending = receipts.filter(receipt => receipt.status === "pending");
-  const [openId, setOpenId] = useState<number | null>(null);
+  const { data: orders = [] } = trpc.orders.list.useQuery(undefined, { refetchInterval: 20_000 });
+  type Item = { key: string; kind: "order" | "receipt"; id: number; customerName: string; phone: string; province: string | null; amount: string; product: string | null; createdAt: string | Date; fileUrl: string; recipientName?: string | null; transactionRef?: string | null; receiptAt?: string | Date | null; note?: string | null };
+  const items: Item[] = [
+    ...orders.filter(o => o.paymentProofKey && o.paymentProofStatus === "pending").map(o => ({ key: `o${o.id}`, kind: "order" as const, id: o.id, customerName: o.customerName, phone: o.phone, province: o.province, amount: o.downPaymentUsd, product: o.productTitle, createdAt: o.createdAt, fileUrl: `/api/files/${o.paymentProofKey}` })),
+    ...receipts.filter(r => r.status === "pending").map(r => ({ key: `r${r.id}`, kind: "receipt" as const, id: r.id, customerName: r.customerName, phone: r.customerPhone, province: null, amount: r.amountUsd, product: null, createdAt: r.createdAt, fileUrl: `/api/files/${r.fileKey}`, recipientName: r.recipientName, transactionRef: r.transactionRef, receiptAt: r.receiptAt, note: r.note })),
+  ].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+  const [openKey, setOpenKey] = useState<string | null>(null);
   const [eta, setEta] = useState<string>(DELIVERY_ETAS[0].value);
   const [message, setMessage] = useState("");
-  const refresh = () => { utils.payments.list.invalidate(); utils.conversations.list.invalidate(); utils.conversations.thread.invalidate(); };
-  const approve = trpc.payments.approveAndNotify.useMutation({
-    onSuccess: () => { toast.success("تم تأكيد الدفعة وإرسال تعليمات الشحن للعميل"); setOpenId(null); refresh(); },
-    onError: error => toast.error(error.message || "تعذر التأكيد"),
-  });
-  const reject = trpc.payments.review.useMutation({
-    onSuccess: () => { toast.success("تم رفض الإيصال"); refresh(); },
-    onError: error => toast.error(error.message || "تعذر الحفظ"),
-  });
-  const startApprove = (receipt: (typeof pending)[number]) => {
-    setOpenId(receipt.id);
-    setEta(DELIVERY_ETAS[0].value);
-    setMessage(shippingMessage({ customerName: receipt.customerName, eta: DELIVERY_ETAS[0].value }));
+  const refresh = () => { utils.payments.list.invalidate(); utils.orders.list.invalidate(); utils.conversations.list.invalidate(); utils.conversations.thread.invalidate(); };
+  const approveReceipt = trpc.payments.approveAndNotify.useMutation({ onSuccess: () => { toast.success("تم تأكيد الدفعة وإرسال تعليمات الشحن"); setOpenKey(null); refresh(); }, onError: e => toast.error(e.message || "تعذر التأكيد") });
+  const approveOrder = trpc.orders.approveProofAndNotify.useMutation({ onSuccess: r => { toast.success(r.notified ? "تم تأكيد الدفعة وإرسال تعليمات الشحن" : "تم تأكيد الدفعة — العميل لم ينشئ حساباً بعد، فلن تصله الرسالة حتى يسجّل"); setOpenKey(null); refresh(); }, onError: e => toast.error(e.message || "تعذر التأكيد") });
+  const rejectReceipt = trpc.payments.review.useMutation({ onSuccess: () => { toast.success("تم رفض الإيصال"); refresh(); }, onError: e => toast.error(e.message || "تعذر الحفظ") });
+  const rejectOrder = trpc.orders.reviewPaymentProof.useMutation({ onSuccess: () => { toast.success("تم رفض الإيصال"); refresh(); }, onError: e => toast.error(e.message || "تعذر الحفظ") });
+  const busy = approveReceipt.isPending || approveOrder.isPending;
+
+  const start = (item: Item) => {
+    const first = item.province ? etaForProvince(item.province) : DELIVERY_ETAS[0].value;
+    setOpenKey(item.key); setEta(first);
+    setMessage(shippingMessage({ customerName: item.customerName, eta: first }));
   };
-  const changeEta = (receipt: (typeof pending)[number], value: string) => {
-    setEta(value);
-    setMessage(shippingMessage({ customerName: receipt.customerName, eta: value }));
-  };
-  const doReject = (id: number) => {
+  const changeEta = (item: Item, value: string) => { setEta(value); setMessage(shippingMessage({ customerName: item.customerName, eta: value })); };
+  const submit = (item: Item) => item.kind === "order" ? approveOrder.mutate({ id: item.id, message }) : approveReceipt.mutate({ id: item.id, message });
+  const reject = (item: Item) => {
+    if (item.kind === "order") { if (window.confirm("رفض إثبات الدفع لهذا الطلب؟ سيُطلب من العميل التواصل لإعادة الإرسال.")) rejectOrder.mutate({ id: item.id, decision: "rejected" }); return; }
     const note = window.prompt("سبب الرفض (يظهر للعميل):", "الإيصال غير مطابق — أعد رفع لقطة واضحة لعملية التحويل");
-    if (note === null) return;
-    reject.mutate({ id, status: "rejected", note });
+    if (note !== null) rejectReceipt.mutate({ id: item.id, status: "rejected", note });
   };
 
-  if (pending.length === 0) return null;
+  if (items.length === 0) return null;
 
   return <section className="receipt-alert mt-7 overflow-hidden rounded-[25px] border-2 border-[#f0c987] bg-[#fffaf0]">
     <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#f3e2bd] px-6 py-4">
       <div className="flex items-center gap-3">
         <span className="relative grid h-11 w-11 place-items-center rounded-xl bg-[#aa7412] text-white"><TriangleAlert className="h-5 w-5" /><span className="absolute -right-1 -top-1 flex h-3 w-3"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#aa7412] opacity-75" /><span className="relative inline-flex h-3 w-3 rounded-full bg-[#aa7412]" /></span></span>
-        <div><h2 className="font-extrabold text-[#0a2342]">{pending.length === 1 ? "إيصال دفع بانتظار تأكيدك" : `${pending.length} إيصالات دفع بانتظار تأكيدك`}</h2><p className="mt-0.5 text-xs text-slate-600">افتح الإيصال وطابق المستلم والمبلغ في تطبيق المحفظة، ثم أكّد لتُرسل تعليمات الشحن للعميل فوراً.</p></div>
+        <div><h2 className="font-extrabold text-[#0a2342]">{items.length === 1 ? "إيصال دفع بانتظار تأكيدك" : `${items.length} إيصالات دفع بانتظار تأكيدك`}</h2><p className="mt-0.5 text-xs text-slate-600">افتح الإيصال وطابق المستلم (هيثم يوسف سعيد) والمبلغ والتاريخ في تطبيق المحفظة، ثم أكّد لتُرسل تعليمات الشحن للعميل.</p></div>
       </div>
     </div>
     <div className="divide-y divide-[#f3e2bd]">
-      {pending.map(receipt => (
-        <div key={receipt.id} className="px-6 py-4">
+      {items.map(item => (
+        <div key={item.key} className="px-6 py-4">
           <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
-            <div className="min-w-[180px] flex-1"><p className="text-sm font-extrabold text-[#0a2342]">{receipt.customerName}</p><p className="mt-0.5 font-mono text-[11px] text-slate-500" dir="ltr">{receipt.customerPhone}</p></div>
-            <span className="font-mono text-lg font-extrabold text-[#0a2342]">${Number(receipt.amountUsd).toFixed(0)}</span>
-            <span className="text-[11px] text-slate-500">{new Date(receipt.createdAt).toLocaleString("ar-SY", { dateStyle: "short", timeStyle: "short" })}</span>
-            <a href={`/api/files/${receipt.fileKey}`} target="_blank" rel="noopener noreferrer" className="flex h-9 items-center gap-1.5 rounded-lg border border-[#0a2342] bg-white px-3 text-[11px] font-extrabold text-[#0a2342] hover:bg-[#f2fafd]"><ExternalLink className="h-3.5 w-3.5" />عرض الإيصال</a>
-            {openId === receipt.id
-              ? <button onClick={() => setOpenId(null)} className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-[11px] font-extrabold text-slate-600">إلغاء</button>
-              : <button onClick={() => startApprove(receipt)} disabled={approve.isPending} className="h-9 rounded-lg bg-[#15915f] px-4 text-[11px] font-extrabold text-white disabled:opacity-50">تأكيد وإرسال تعليمات الشحن</button>}
-            <button onClick={() => doReject(receipt.id)} disabled={reject.isPending} className="h-9 rounded-lg border border-[#e3b4ab] bg-white px-3 text-[11px] font-extrabold text-[#a5301f] disabled:opacity-50">رفض</button>
+            <div className="min-w-[180px] flex-1"><p className="text-sm font-extrabold text-[#0a2342]">{item.customerName}</p><p className="mt-0.5 text-[11px] text-slate-500"><span className="font-mono" dir="ltr">{item.phone}</span>{item.province && ` · ${item.province}`}{item.product && ` · ${item.product}`}</p></div>
+            <span className="font-mono text-lg font-extrabold text-[#0a2342]">${Number(item.amount).toFixed(0)}</span>
+            <span className="text-[11px] text-slate-500">{new Date(item.createdAt).toLocaleString("ar-SY", { dateStyle: "short", timeStyle: "short" })}</span>
+            <span className={`rounded-full px-2 py-0.5 text-[10px] font-extrabold ${item.kind === "order" ? "bg-[#e8f3fa] text-[#1f6f96]" : "bg-slate-100 text-slate-600"}`}>{item.kind === "order" ? "طلب كامل" : "من صفحة الحساب"}</span>
+            <a href={item.fileUrl} target="_blank" rel="noopener noreferrer" className="flex h-9 items-center gap-1.5 rounded-lg border border-[#0a2342] bg-white px-3 text-[11px] font-extrabold text-[#0a2342] hover:bg-[#f2fafd]"><ExternalLink className="h-3.5 w-3.5" />عرض الإيصال</a>
+            {openKey === item.key
+              ? <button onClick={() => setOpenKey(null)} className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-[11px] font-extrabold text-slate-600">إلغاء</button>
+              : <button onClick={() => start(item)} disabled={busy} className="h-9 rounded-lg bg-[#15915f] px-4 text-[11px] font-extrabold text-white disabled:opacity-50">تأكيد وإرسال تعليمات الشحن</button>}
+            <button onClick={() => reject(item)} disabled={rejectReceipt.isPending || rejectOrder.isPending} className="h-9 rounded-lg border border-[#e3b4ab] bg-white px-3 text-[11px] font-extrabold text-[#a5301f] disabled:opacity-50">رفض</button>
           </div>
-          {(receipt.recipientName || receipt.transactionRef || receipt.note) && <p className="mt-2 text-[11px] leading-5 text-slate-500">
-            {receipt.recipientName && <>المستلم في الإيصال: <b className="text-[#0a2342]">{receipt.recipientName}</b> · </>}
-            {receipt.transactionRef && <>رقم العملية: <span className="font-mono" dir="ltr">{receipt.transactionRef}</span> · </>}
-            {receipt.receiptAt && <>وقت التحويل: {new Date(receipt.receiptAt).toLocaleString("ar-SY", { dateStyle: "short", timeStyle: "short" })} · </>}
-            {receipt.note && <span className="text-[#aa7412]">{receipt.note}</span>}
+          {(item.recipientName || item.transactionRef || item.note) && <p className="mt-2 text-[11px] leading-5 text-slate-500">
+            {item.recipientName && <>المستلم في الإيصال: <b className="text-[#0a2342]">{item.recipientName}</b> · </>}
+            {item.transactionRef && <>رقم العملية: <span className="font-mono" dir="ltr">{item.transactionRef}</span> · </>}
+            {item.receiptAt && <>وقت التحويل: {new Date(item.receiptAt).toLocaleString("ar-SY", { dateStyle: "short", timeStyle: "short" })} · </>}
+            {item.note && <span className="text-[#aa7412]">{item.note}</span>}
           </p>}
-          {openId === receipt.id && <form onSubmit={event => { event.preventDefault(); approve.mutate({ id: receipt.id, message }); }} className="mt-4 rounded-2xl border border-[#d6e5f0] bg-white p-4">
-            <p className="text-xs font-extrabold text-[#0a2342]">الرسالة التي ستصل العميل فور التأكيد</p>
+          {openKey === item.key && <form onSubmit={event => { event.preventDefault(); submit(item); }} className="mt-4 rounded-2xl border border-[#d6e5f0] bg-white p-4">
+            <p className="text-xs font-extrabold text-[#0a2342]">الرسالة التي ستصل العميل فور التأكيد{item.province && <span className="mr-2 font-bold text-slate-400">(المدة مقترحة حسب {item.province})</span>}</p>
             <label className="mt-3 block text-[11px] font-bold text-slate-600">موعد التسليم المتوقع
-              <select value={eta} onChange={event => changeEta(receipt, event.target.value)} className="form-field mt-1.5 h-10 text-xs">
-                {DELIVERY_ETAS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
-              </select>
+              <select value={eta} onChange={event => changeEta(item, event.target.value)} className="form-field mt-1.5 h-10 text-xs">{DELIVERY_ETAS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select>
             </label>
             <textarea value={message} onChange={event => setMessage(event.target.value)} rows={7} maxLength={2000} className="form-field mt-3 h-auto resize-y py-2 text-xs leading-6" />
             <div className="mt-3 flex justify-end gap-2">
-              <button type="button" onClick={() => setOpenId(null)} className="h-10 rounded-xl border border-slate-200 px-4 text-xs font-extrabold text-slate-600">إلغاء</button>
-              <button type="submit" disabled={approve.isPending || !message.trim()} className="h-10 rounded-xl bg-[#15915f] px-5 text-xs font-extrabold text-white disabled:opacity-50">{approve.isPending ? "جارٍ التأكيد…" : "تأكيد الدفعة وإرسال الرسالة"}</button>
+              <button type="button" onClick={() => setOpenKey(null)} className="h-10 rounded-xl border border-slate-200 px-4 text-xs font-extrabold text-slate-600">إلغاء</button>
+              <button type="submit" disabled={busy || !message.trim()} className="h-10 rounded-xl bg-[#15915f] px-5 text-xs font-extrabold text-white disabled:opacity-50">{busy ? "جارٍ التأكيد…" : "تأكيد الدفعة وإرسال الرسالة"}</button>
             </div>
           </form>}
         </div>
