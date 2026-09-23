@@ -1,6 +1,6 @@
 import { and, desc, eq, gte, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { IncompleteCheckoutLead, InsertIncompleteCheckoutLead, InsertInstallmentOrder, InsertUser, incompleteCheckoutLeads, installmentOrders, conversationMessages, conversations, storeSettings, storedFiles, users, visitorSessions } from "../drizzle/schema";
+import { IncompleteCheckoutLead, InsertIncompleteCheckoutLead, InsertInstallmentOrder, InsertUser, incompleteCheckoutLeads, installmentOrders, conversationMessages, conversations, customers, storeSettings, storedFiles, users, visitorSessions } from "../drizzle/schema";
 import { ENV } from './_core/env';
 import { migrate } from "drizzle-orm/mysql2/migrator";
 import path from "path";
@@ -295,7 +295,7 @@ export async function findConversationByLead(leadId: number) {
   return rows[0] ?? null;
 }
 
-export async function createConversation(input: { token: string; leadId: number | null; orderId: number | null; customerName: string; phone: string | null; productTitle: string }) {
+export async function createConversation(input: { token: string; leadId: number | null; orderId: number | null; customerName: string; phone: string | null; productTitle: string; customerId?: number | null }) {
   const db = await getDb();
   if (!db) throw new Error("قاعدة البيانات غير متاحة حالياً");
   await db.insert(conversations).values(input);
@@ -343,4 +343,59 @@ export async function listConversationsWithUnread() {
     .groupBy(conversationMessages.conversationId);
   const map = new Map(unread.map(row => [row.conversationId, Number(row.total)]));
   return threads.map(thread => ({ ...thread, unread: map.get(thread.id) ?? 0 }));
+}
+
+export async function createCustomer(input: { phone: string; name: string; passwordHash: string }) {
+  const db = await getDb();
+  if (!db) throw new Error("قاعدة البيانات غير متاحة حالياً");
+  await db.insert(customers).values(input);
+  const rows = await db.select().from(customers).where(eq(customers.phone, input.phone)).limit(1);
+  return rows[0]!;
+}
+
+export async function getCustomerByPhone(phone: string) {
+  const db = await getDb();
+  if (!db) return null;
+  const rows = await db.select().from(customers).where(eq(customers.phone, phone)).limit(1);
+  return rows[0] ?? null;
+}
+
+export async function getCustomerById(id: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const rows = await db.select().from(customers).where(eq(customers.id, id)).limit(1);
+  return rows[0] ?? null;
+}
+
+export async function touchCustomerLogin(id: number) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(customers).set({ lastLoginAt: new Date() }).where(eq(customers.id, id));
+}
+
+/** Everything the store already knows about this phone number, newest first. */
+export async function getCustomerRecords(phone: string) {
+  const db = await getDb();
+  if (!db) return { orders: [], leads: [] };
+  const [orders, leads] = await Promise.all([
+    db.select().from(installmentOrders).where(eq(installmentOrders.phone, phone)).orderBy(desc(installmentOrders.createdAt)),
+    db.select().from(incompleteCheckoutLeads).where(eq(incompleteCheckoutLeads.phone, phone)).orderBy(desc(incompleteCheckoutLeads.createdAt)),
+  ]);
+  return { orders, leads };
+}
+
+export async function findConversationByCustomer(customerId: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const rows = await db.select().from(conversations).where(eq(conversations.customerId, customerId)).limit(1);
+  return rows[0] ?? null;
+}
+
+/** Attaches threads already opened for this phone's follow-ups to the new account. */
+export async function linkConversationsToCustomer(customerId: number, leadIds: number[]) {
+  const db = await getDb();
+  if (!db || leadIds.length === 0) return;
+  for (const leadId of leadIds) {
+    await db.update(conversations).set({ customerId }).where(eq(conversations.leadId, leadId));
+  }
 }

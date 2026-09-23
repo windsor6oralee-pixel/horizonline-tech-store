@@ -43,3 +43,14 @@ export const adminProcedure = t.procedure.use(
     });
   }),
 );
+
+/** Requires a signed-in storefront customer (not the admin). */
+export const customerProcedure = t.procedure.use(
+  t.middleware(async opts => {
+    const { ctx, next } = opts;
+    if (!ctx.customerId) {
+      throw new TRPCError({ code: "UNAUTHORIZED", message: "سجّل الدخول للمتابعة" });
+    }
+    return next({ ctx: { ...ctx, customerId: ctx.customerId } });
+  }),
+);

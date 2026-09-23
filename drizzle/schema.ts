@@ -140,6 +140,7 @@ export const conversations = mysqlTable("conversations", {
   token: varchar("token", { length: 48 }).notNull().unique(),
   leadId: int("leadId"),
   orderId: int("orderId"),
+  customerId: int("customerId"),
   customerName: varchar("customerName", { length: 160 }).notNull(),
   phone: varchar("phone", { length: 32 }),
   productTitle: varchar("productTitle", { length: 255 }).notNull(),
@@ -158,3 +159,16 @@ export const conversationMessages = mysqlTable("conversationMessages", {
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 export type ConversationMessage = typeof conversationMessages.$inferSelect;
+
+/** A storefront customer who qualified for instalments and can sign in to follow their order. */
+export const customers = mysqlTable("customers", {
+  id: int("id").autoincrement().primaryKey(),
+  /** Digits only, the same number entered at checkout. Used as the sign-in name. */
+  phone: varchar("phone", { length: 32 }).notNull().unique(),
+  name: varchar("name", { length: 160 }).notNull(),
+  /** scrypt: salt:hash, both hex. */
+  passwordHash: varchar("passwordHash", { length: 255 }).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  lastLoginAt: timestamp("lastLoginAt").defaultNow().notNull(),
+});
+export type Customer = typeof customers.$inferSelect;

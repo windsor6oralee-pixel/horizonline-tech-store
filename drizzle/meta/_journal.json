@@ -78,6 +78,13 @@
       "when": 1790171951519,
       "tag": "0010_dazzling_wolf_cub",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "5",
+      "when": 1790172558183,
+      "tag": "0011_lucky_boomerang",
+      "breakpoints": true
     }
   ]
 }

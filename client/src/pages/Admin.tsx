@@ -36,6 +36,7 @@ export default function Admin() {
       <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end"><div><p className="eyebrow">HORIZONLINE / OPERATIONS</p><h1 className="mt-2 text-3xl font-extrabold tracking-tight text-[#0a2342]">طلبات التقسيط</h1><p className="mt-2 text-sm text-slate-500">راجع التأهل المبدئي وبيانات التسليم ثم حدّث الحالة.</p></div><span className="rounded-full bg-[#e8f3fa] px-4 py-2 text-sm font-bold text-[#1f6f96]">لا تُشارك بيانات العملاء خارج نطاق الطلب</span></div>
       <div className="mt-7 grid gap-4 md:grid-cols-4"><Stat icon={ClipboardList} value={total} label="إجمالي الطلبات" /><Stat icon={CheckCircle2} value={approved} label="طلبات معتمدة" tone="green" /><Stat icon={FileText} value={pendingProofs} label="إيصالات بانتظار المراجعة" tone="yellow" /><Stat icon={PhoneCall} value={newLeads} label="متابعات جديدة" tone="blue" /></div>
       <LiveVisitors />
+      <CustomerInbox />
       <WhatsAppSettings />
       <section className="mt-7 overflow-hidden rounded-[25px] border border-[#d8e7e6] bg-[#fbfefe]"><div className="flex flex-col gap-2 border-b border-[#e4efed] px-6 py-5 sm:flex-row sm:items-center sm:justify-between"><div><h2 className="font-extrabold text-[#0a2342]">متابعات ومحادثات واتساب</h2><p className="mt-1 text-xs text-slate-500">عملاء بدأوا الطلب ولم يكملوه: إمّا حفظوا بياناتهم بموافقتهم، أو انتقلوا للمحادثة عبر واتساب.</p></div><span className="rounded-full bg-[#e8f3fa] px-3 py-1 text-xs font-bold text-[#1f6f96]">{incompleteLeads.length} متابعة · منها {incompleteLeads.filter(lead => lead.source === "whatsapp").length} واتساب</span>{unreadTotal > 0 && <span className="rounded-full bg-[#0a2342] px-3 py-1 text-xs font-bold text-[#8ad9e3]">{unreadTotal} رسالة غير مقروءة</span>}</div>{leadsLoading ? <div className="grid min-h-32 place-items-center"><Loader2 className="h-5 w-5 animate-spin text-[#1f6f96]" /></div> : incompleteLeads.length === 0 ? <div className="px-6 py-10 text-center"><PhoneCall className="mx-auto h-8 w-8 text-slate-300" /><p className="mt-3 text-sm font-bold text-slate-500">لا توجد متابعات بعد.</p></div> : <div className="grid gap-3 p-4 md:grid-cols-2">{incompleteLeads.map(lead => <article key={lead.id} onClick={() => setOpenLead(lead)} className="cursor-pointer rounded-2xl border border-slate-200 bg-white p-4 transition hover:-translate-y-0.5 hover:border-[#8ad9e3] hover:shadow-md"><div className="flex items-start justify-between gap-3"><div><p className="font-extrabold text-[#0a2342]">{lead.customerName}</p><p className="mt-1 text-xs text-slate-500">{[lead.phone, lead.province].filter(Boolean).join(" · ") || "راسلك من رقمه على واتساب"}</p></div><div className="flex shrink-0 flex-col items-end gap-1.5">{(unreadByLead.get(lead.id) ?? 0) > 0 && <span className="flex items-center gap-1 rounded-full bg-[#0a2342] px-2 py-1 text-[10px] font-extrabold text-[#8ad9e3]"><MessagesSquare className="h-3 w-3" />{unreadByLead.get(lead.id)} رسالة جديدة</span>}{lead.source === "whatsapp" ? <span className="flex shrink-0 items-center gap-1 rounded-full bg-[#e7f9ee] px-2 py-1 text-[10px] font-extrabold text-[#128c45]"><MessageCircle className="h-3 w-3" />محادثة واتساب</span> : <span className="shrink-0 rounded-full bg-[#eff5fa] px-2 py-1 text-[10px] font-extrabold text-[#1f6f96]">بموافقة العميل</span>}</div></div><p className="mt-4 font-bold text-slate-700">{lead.productTitle}</p><p className="mt-1 text-xs text-slate-500">دفعة {lead.downPaymentUsd}$ · {lead.months} شهر · {new Date(lead.createdAt).toLocaleDateString("ar-SY")}</p><div className="mt-4 flex items-center justify-between gap-3"><span className="text-[11px] font-bold text-slate-400">{lead.source === "whatsapp" ? `توقف عند: ${leadStepLabels[lead.checkoutStep]}` : "لا توجد وثائق ضمن هذا السجل"}</span><select onClick={event => event.stopPropagation()} className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-[11px] font-bold text-slate-700" value={lead.status} onChange={event => updateLead.mutate({ id: lead.id, status: event.target.value as keyof typeof leadStatusLabels })} disabled={updateLead.isPending}>{Object.entries(leadStatusLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></div></article>)}</div>}</section>
       <section className="mt-7 overflow-hidden rounded-[25px] border border-slate-200 bg-white">
@@ -199,6 +200,81 @@ function LeadDetail({ lead, close, setStatus, saving }: { lead: Lead; close: () 
       </div>
     </section>
   </div>;
+}
+
+function CustomerInbox() {
+  const utils = trpc.useUtils();
+  const [openId, setOpenId] = useState<number | null>(null);
+  const [body, setBody] = useState("");
+  const { data: threads = [], isLoading } = trpc.conversations.list.useQuery(undefined, { refetchInterval: 30_000 });
+  const { data: messages = [] } = trpc.conversations.thread.useQuery(
+    { id: openId ?? 0, markRead: true },
+    { enabled: Boolean(openId), refetchInterval: 15_000 },
+  );
+  const reply = trpc.conversations.replyAsAdmin.useMutation({
+    onSuccess: () => { setBody(""); utils.conversations.thread.invalidate(); utils.conversations.list.invalidate(); },
+    onError: error => toast.error(error.message || "تعذر إرسال الرسالة"),
+  });
+  const selected = threads.find(thread => thread.id === openId) ?? null;
+  const unreadTotal = threads.reduce((sum, thread) => sum + thread.unread, 0);
+
+  return <section className="mt-7 overflow-hidden rounded-[25px] border border-slate-200 bg-white">
+    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-6 py-5">
+      <div className="flex items-center gap-4">
+        <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[#e8f3fa] text-[#1f6f96]"><MessagesSquare className="h-5 w-5" /></span>
+        <div>
+          <h2 className="font-extrabold text-[#0a2342]">صندوق رسائل العملاء</h2>
+          <p className="mt-1 text-xs text-slate-500">محادثات العملاء المسجّلين داخل الموقع — يراها كل عميل في صفحة حسابه.</p>
+        </div>
+      </div>
+      {unreadTotal > 0 && <span className="rounded-full bg-[#0a2342] px-3 py-1 text-xs font-bold text-[#8ad9e3]">{unreadTotal} غير مقروءة</span>}
+    </div>
+
+    {isLoading ? <div className="grid min-h-28 place-items-center"><Loader2 className="h-5 w-5 animate-spin text-[#1f6f96]" /></div>
+      : threads.length === 0 ? <p className="px-6 py-12 text-center text-sm text-slate-400">لا توجد محادثات بعد. تظهر هنا فور أن يسجّل عميل حسابه ويراسلك.</p>
+      : <div className="grid gap-0 md:grid-cols-[260px_1fr]">
+          <ul className="max-h-[340px] divide-y divide-slate-100 overflow-y-auto border-l border-slate-100">
+            {threads.map(thread => (
+              <li key={thread.id}>
+                <button onClick={() => setOpenId(thread.id)} className={`flex w-full items-center justify-between gap-2 px-5 py-3 text-right transition ${openId === thread.id ? "bg-[#f2fafd]" : "hover:bg-slate-50"}`}>
+                  <span className="min-w-0">
+                    <b className="block truncate text-xs font-extrabold text-[#0a2342]">{thread.customerName}</b>
+                    <small className="mt-0.5 block truncate text-[10px] text-slate-400">{thread.productTitle}</small>
+                  </span>
+                  {thread.unread > 0 && <span className="grid h-5 min-w-5 shrink-0 place-items-center rounded-full bg-[#0a2342] px-1.5 text-[10px] font-extrabold text-[#8ad9e3]">{thread.unread}</span>}
+                </button>
+              </li>
+            ))}
+          </ul>
+
+          <div className="p-5">
+            {!selected ? <p className="grid min-h-[240px] place-items-center text-center text-xs text-slate-400">اختر عميلاً من القائمة لعرض محادثته.</p> : <>
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
+                <b className="text-sm text-[#0a2342]">{selected.customerName}</b>
+                {selected.phone && <span className="font-mono text-[11px] text-slate-400" dir="ltr">{selected.phone}</span>}
+              </div>
+              <div className="mt-3 max-h-[220px] space-y-2 overflow-y-auto">
+                {messages.length === 0
+                  ? <p className="py-8 text-center text-[11px] text-slate-400">لا توجد رسائل بعد — اكتب أول رسالة.</p>
+                  : messages.map(message => (
+                      <div key={message.id} className={`max-w-[85%] rounded-xl px-3 py-2 text-[11px] leading-5 ${message.sender === "admin" ? "mr-auto bg-[#0a2342] text-white" : "border border-slate-200 bg-white text-[#0a2342]"}`}>
+                        <p className="whitespace-pre-wrap">{message.body}</p>
+                        <time className={`mt-1 block text-[9px] ${message.sender === "admin" ? "text-[#8ab4cc]" : "text-slate-400"}`}>
+                          {message.sender === "admin" ? "أنت" : selected.customerName} · {new Date(message.createdAt).toLocaleString("ar-SY", { dateStyle: "short", timeStyle: "short" })}
+                        </time>
+                      </div>
+                    ))}
+              </div>
+              <form onSubmit={event => { event.preventDefault(); if (body.trim()) reply.mutate({ id: selected.id, body }); }} className="mt-3 flex items-end gap-2">
+                <textarea value={body} onChange={event => setBody(event.target.value)} rows={2} maxLength={2000} placeholder="اكتب رسالتك للعميل…" className="form-field h-auto flex-1 resize-none py-2 text-xs leading-5" />
+                <button type="submit" disabled={reply.isPending || !body.trim()} className="button-dark grid h-10 w-10 shrink-0 place-items-center rounded-xl disabled:opacity-50" aria-label="إرسال">
+                  {reply.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+                </button>
+              </form>
+            </>}
+          </div>
+        </div>}
+  </section>;
 }
 
 function LeadConversation({ lead }: { lead: Lead }) {

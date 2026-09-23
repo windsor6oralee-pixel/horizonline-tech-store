@@ -118,10 +118,10 @@ export default function Home() {
     <header className="app-day-header sticky top-0 z-30 border-b border-[#d6e5f0]">
       <div className="mx-auto flex h-[72px] max-w-7xl items-center justify-between px-5">
         <a href="#top" aria-label="Horizonline Tech Store"><BrandLockup tone="onLight" size="md" /></a>
-        <nav className="hidden items-center gap-7 md:flex"><a className="nav-link" href="#catalog">الأجهزة</a><a className="nav-link" href="#installment">التقسيط</a><a className="nav-link" href="#delivery">التوصيل</a><a className="nav-link" href="/admin">للمدير</a></nav>
+        <nav className="hidden items-center gap-7 md:flex"><a className="nav-link" href="#catalog">الأجهزة</a><a className="nav-link" href="#installment">التقسيط</a><a className="nav-link" href="#delivery">التوصيل</a><a className="nav-link" href="/account">حسابي</a><a className="nav-link" href="/admin">للمدير</a></nav>
         <div className="flex gap-2"><button onClick={openCart} className="relative grid h-10 w-10 place-items-center rounded-xl bg-white/10 text-white" aria-label="السلة"><ShoppingBag className="h-4 w-4" />{itemCount > 0 && <span className="absolute -left-1 -top-1 grid h-5 w-5 place-items-center rounded-full bg-[#f6b94f] text-[10px] font-extrabold text-[#0a2342]">{itemCount}</span>}</button><button onClick={() => setMenuOpen(!menuOpen)} className="grid h-10 w-10 place-items-center rounded-xl bg-white/10 text-white md:hidden"><Menu className="h-5 w-5" /></button></div>
       </div>
-      {menuOpen && <div className="border-t border-white/10 px-5 py-4 md:hidden"><div className="flex flex-col gap-3"><a className="nav-link" href="#catalog">الأجهزة</a><a className="nav-link" href="#installment">التقسيط</a><a className="nav-link" href="#delivery">التوصيل</a></div></div>}
+      {menuOpen && <div className="border-t border-white/10 px-5 py-4 md:hidden"><div className="flex flex-col gap-3"><a className="nav-link" href="#catalog">الأجهزة</a><a className="nav-link" href="#installment">التقسيط</a><a className="nav-link" href="#delivery">التوصيل</a><a className="nav-link" href="/account">حسابي</a></div></div>}
     </header>
     <main id="top">
       <section className="day-hero relative overflow-hidden"><div className="absolute left-[8%] top-10 h-64 w-64 rounded-full bg-[#8ad9e3]/20 blur-3xl" />
