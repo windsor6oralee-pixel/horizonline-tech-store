@@ -400,10 +400,23 @@ export async function linkConversationsToCustomer(customerId: number, leadIds: n
   }
 }
 
-export async function createCustomerPayment(input: { customerId: number; amountUsd: string; fileKey: string; fileName: string; mimeType: string }) {
+export async function createCustomerPayment(input: {
+  customerId: number; amountUsd: string; fileKey: string; fileName: string; mimeType: string;
+  status: "pending" | "approved" | "rejected"; note: string | null; verifiedBy: "auto" | "admin" | null;
+  transactionRef: string | null; receiptAt: Date | null; recipientName: string | null; receiptAmountUsd: string | null;
+}) {
   const db = await getDb();
   if (!db) throw new Error("قاعدة البيانات غير متاحة حالياً");
-  await db.insert(customerPayments).values(input);
+  await db.insert(customerPayments).values({ ...input, reviewedAt: input.status === "pending" ? null : new Date() });
+}
+
+/** True when this transaction number already backs a receipt that was not rejected. */
+export async function transactionRefInUse(ref: string): Promise<boolean> {
+  const db = await getDb();
+  if (!db) return false;
+  const rows = await db.select({ id: customerPayments.id }).from(customerPayments)
+    .where(and(eq(customerPayments.transactionRef, ref), sql`${customerPayments.status} <> 'rejected'`)).limit(1);
+  return rows.length > 0;
 }
 
 export async function listCustomerPayments(customerId: number) {
@@ -412,10 +425,10 @@ export async function listCustomerPayments(customerId: number) {
   return db.select().from(customerPayments).where(eq(customerPayments.customerId, customerId)).orderBy(desc(customerPayments.createdAt));
 }
 
-/** Chat opens once a receipt is on file that has not been rejected. */
+/** Chat opens only once a receipt has been verified — automatically or by the admin. */
 export async function customerChatUnlocked(customerId: number): Promise<boolean> {
   const payments = await listCustomerPayments(customerId);
-  return payments.some(payment => payment.status !== "rejected");
+  return payments.some(payment => payment.status === "approved");
 }
 
 export async function listAllCustomerPayments() {
@@ -425,6 +438,8 @@ export async function listAllCustomerPayments() {
     id: customerPayments.id, customerId: customerPayments.customerId, amountUsd: customerPayments.amountUsd,
     fileKey: customerPayments.fileKey, fileName: customerPayments.fileName, mimeType: customerPayments.mimeType,
     status: customerPayments.status, note: customerPayments.note, reviewedAt: customerPayments.reviewedAt,
+    transactionRef: customerPayments.transactionRef, receiptAt: customerPayments.receiptAt, recipientName: customerPayments.recipientName,
+    receiptAmountUsd: customerPayments.receiptAmountUsd, verifiedBy: customerPayments.verifiedBy,
     createdAt: customerPayments.createdAt, customerName: customers.name, customerPhone: customers.phone,
   }).from(customerPayments)
     .innerJoin(customers, eq(customers.id, customerPayments.customerId))
@@ -434,5 +449,5 @@ export async function listAllCustomerPayments() {
 export async function reviewCustomerPayment(id: number, status: "approved" | "rejected", note: string | null) {
   const db = await getDb();
   if (!db) throw new Error("قاعدة البيانات غير متاحة حالياً");
-  await db.update(customerPayments).set({ status, note, reviewedAt: new Date() }).where(eq(customerPayments.id, id));
+  await db.update(customerPayments).set({ status, note, reviewedAt: new Date(), verifiedBy: "admin" }).where(eq(customerPayments.id, id));
 }

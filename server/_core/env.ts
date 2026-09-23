@@ -11,4 +11,5 @@ export const ENV = {
   shopifyStorefrontApiAccessToken: process.env.SHOPIFY_STOREFRONT_API_ACCESS_TOKEN ?? "",
   adminUsername: process.env.ADMIN_USERNAME ?? "",
   adminPassword: process.env.ADMIN_PASSWORD ?? "",
+  anthropicApiKey: process.env.ANTHROPIC_API_KEY ?? "",
 };

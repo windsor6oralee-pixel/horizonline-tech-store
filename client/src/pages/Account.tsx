@@ -129,8 +129,8 @@ function Dashboard() {
           {!data.chatUnlocked ? (
             <div className="mt-3 rounded-2xl border border-dashed border-[#cadce9] bg-white p-6 text-center">
               <Lock className="mx-auto h-6 w-6 text-slate-300" />
-              <p className="mt-2 text-sm font-extrabold text-[#0a2342]">تُفتح المحادثة بعد رفع إيصال الدفعة الأولى</p>
-              <p className="mt-1 text-xs leading-6 text-slate-500">ادفع الدفعة إلى محفظة المتجر أعلاه وارفع لقطة عملية الدفع، وسيصبح بإمكانك مراسلة الفريق فوراً.</p>
+              <p className="mt-2 text-sm font-extrabold text-[#0a2342]">تُفتح المحادثة بعد التحقق من إيصال الدفعة الأولى</p>
+              <p className="mt-1 text-xs leading-6 text-slate-500">ادفع الدفعة إلى محفظة المتجر أعلاه وارفع لقطة عملية التحويل. يُتحقق منها فوراً، وتُفتح المحادثة بعد التأكيد.</p>
             </div>
           ) : <>
             <div className="mt-3 space-y-3">
@@ -164,7 +164,7 @@ function PaymentSection() {
   const { data, isLoading } = trpc.account.paymentInfo.useQuery();
   const [file, setFile] = useState<{ fileName: string; mimeType: "image/jpeg" | "image/png" | "image/webp" | "application/pdf"; dataUrl: string } | null>(null);
   const upload = trpc.account.uploadReceipt.useMutation({
-    onSuccess: () => { setFile(null); toast.success("وصلنا إيصالك — المحادثة مفتوحة الآن"); utils.account.paymentInfo.invalidate(); utils.account.overview.invalidate(); },
+    onSuccess: result => { setFile(null); toast[result.status === "approved" ? "success" : result.status === "rejected" ? "error" : "message"](result.status === "approved" ? "تم التحقق من دفعتك — المحادثة مفتوحة الآن" : result.note || "وصلنا إيصالك"); utils.account.paymentInfo.invalidate(); utils.account.overview.invalidate(); },
     onError: e => toast.error(e.message || "تعذر رفع الإيصال"),
   });
   const copy = async (value: string, label: string) => {
@@ -194,8 +194,8 @@ function PaymentSection() {
       <div className={`mt-3 flex items-start gap-3 rounded-2xl border p-4 ${latest.status === "approved" ? "border-[#bfe6d0] bg-[#f0faf4]" : "border-[#d6e5f0] bg-[#f2fafd]"}`}>
         <ShieldCheck className={`mt-0.5 h-5 w-5 shrink-0 ${latest.status === "approved" ? "text-[#15915f]" : "text-[#1f6f96]"}`} />
         <div>
-          <b className="block text-sm text-[#0a2342]">{latest.status === "approved" ? "تم تأكيد دفعتك" : "وصلنا إيصالك وهو قيد المراجعة"}</b>
-          <p className="mt-1 text-xs leading-6 text-slate-500">${Number(latest.amountUsd).toFixed(0)} · {new Date(latest.createdAt).toLocaleString("ar-SY", { dateStyle: "medium", timeStyle: "short" })}{latest.status === "pending" && " — يمكنك مراسلة الفريق الآن، وسنؤكد الدفعة بعد التحقق."}</p>
+          <b className="block text-sm text-[#0a2342]">{latest.status === "approved" ? "تم التحقق من دفعتك" : "وصلنا إيصالك وهو قيد المراجعة اليدوية"}</b>
+          <p className="mt-1 text-xs leading-6 text-slate-500">${Number(latest.amountUsd).toFixed(0)} · {new Date(latest.createdAt).toLocaleString("ar-SY", { dateStyle: "medium", timeStyle: "short" })}{latest.status === "pending" && (latest.note ? ` — ${latest.note}` : " — سيراجعه الفريق وتُفتح المحادثة بعد التأكيد.")}</p>
         </div>
       </div>
     )}
@@ -221,12 +221,12 @@ function PaymentSection() {
               </button>
             )}
             <div className="mt-3 rounded-2xl bg-[#0a2342] p-4 text-white">
-              <p className="text-[11px] font-bold text-[#8ad9e3]">المبلغ المطلوب — أدخله بالضبط</p>
+              <p className="text-[11px] font-bold text-[#8ad9e3]">أدخل هذا المبلغ في تطبيق المحفظة</p>
               <div className="mt-1 flex items-center justify-between gap-3">
                 <span className="font-mono text-3xl font-extrabold">${amount}</span>
                 <button type="button" onClick={() => copy(amount, "المبلغ")} className="flex h-9 items-center gap-1.5 rounded-lg bg-white/10 px-3 text-[11px] font-extrabold hover:bg-white/20"><Copy className="h-3.5 w-3.5" />نسخ</button>
               </div>
-              <p className="mt-2 text-[10px] leading-5 text-[#c9d7e1]">الدفعة الأولى لطلب {data.productTitle}. أي فرق في المبلغ يؤخر تأكيد طلبك.</p>
+              <p className="mt-2 text-[10px] leading-5 text-[#c9d7e1]">الدفعة الأولى لطلب {data.productTitle}. يتحقق النظام من اسم المستلم وتاريخ التحويل والمبلغ.</p>
             </div>
           </div>
         </div>

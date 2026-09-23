@@ -4,8 +4,9 @@ import { z } from "zod";
 import {
   addConversationMessage, createConversation, createCustomer, createCustomerPayment, customerChatUnlocked,
   findConversationByCustomer, getCustomerById, getCustomerByPhone, getCustomerRecords, linkConversationsToCustomer,
-  listConversationMessages, listCustomerPayments, touchCustomerLogin,
+  listConversationMessages, listCustomerPayments, touchCustomerLogin, transactionRefInUse,
 } from "../db";
+import { verifyReceipt } from "../receiptVerifier";
 import { storagePut } from "../storage";
 import { decodeDataUrl, safeFileName } from "../uploads";
 import { readPaymentQrDataUrl, readPaymentSettings } from "./settings";
@@ -122,7 +123,7 @@ export const accountRouter = router({
       walletId: settings.walletId,
       qrDataUrl: showQr ? await readPaymentQrDataUrl() : null,
       latest: latest ? { status: latest.status, note: latest.note, createdAt: latest.createdAt, amountUsd: latest.amountUsd } : null,
-      chatUnlocked: payments.some(payment => payment.status !== "rejected"),
+      chatUnlocked: payments.some(payment => payment.status === "approved"),
     };
   }),
 
@@ -135,18 +136,37 @@ export const accountRouter = router({
     .mutation(async ({ input, ctx }) => {
       const customer = await getCustomerById(ctx.customerId);
       if (!customer) throw new Error("تعذر العثور على الحساب");
-      const amountUsd = dueAmount(await getCustomerRecords(customer.phone));
+      const records = await getCustomerRecords(customer.phone);
+      const amountUsd = dueAmount(records);
       if (!amountUsd) throw new Error("لا يوجد طلب مرتبط بحسابك بعد");
       const bytes = decodeDataUrl(input.dataUrl, input.mimeType, 3 * 1024 * 1024, "إثبات الدفع");
       const stored = await storagePut(`customer-receipts/${customer.id}/${safeFileName(input.fileName, input.mimeType, "receipt")}`, bytes, input.mimeType);
-      await createCustomerPayment({ customerId: customer.id, amountUsd, fileKey: stored.key, fileName: input.fileName, mimeType: input.mimeType });
-      return { success: true } as const;
+
+      const settings = await readPaymentSettings();
+      const recordCreatedAt = records.orders[0]?.createdAt ?? records.leads[0]?.createdAt ?? customer.createdAt;
+      // PDFs are not read automatically; they wait for the admin.
+      const result = input.mimeType === "application/pdf"
+        ? { status: "pending" as const, note: "ملف PDF — بانتظار المراجعة اليدوية", verifiedBy: null, extracted: null }
+        : await verifyReceipt({
+            imageBase64: bytes.toString("base64"), mimeType: input.mimeType,
+            expectedRecipient: settings.walletName, expectedAmountUsd: Number(amountUsd),
+            recordCreatedAt: new Date(recordCreatedAt), isDuplicateRef: transactionRefInUse,
+          });
+      await createCustomerPayment({
+        customerId: customer.id, amountUsd, fileKey: stored.key, fileName: input.fileName, mimeType: input.mimeType,
+        status: result.status, note: result.note, verifiedBy: result.verifiedBy,
+        transactionRef: result.extracted?.transaction_ref?.trim() || null,
+        receiptAt: result.extracted?.transaction_datetime ? new Date(result.extracted.transaction_datetime + "+03:00") : null,
+        recipientName: result.extracted?.recipient_name?.trim() || null,
+        receiptAmountUsd: result.extracted ? result.extracted.amount.toFixed(2) : null,
+      });
+      return { status: result.status, note: result.note } as const;
     }),
 
   sendMessage: customerProcedure
     .input(z.object({ body: z.string().trim().min(1).max(2000) }))
     .mutation(async ({ input, ctx }) => {
-      if (!(await customerChatUnlocked(ctx.customerId))) throw new Error("تُفتح المحادثة بعد رفع إيصال الدفعة الأولى");
+      if (!(await customerChatUnlocked(ctx.customerId))) throw new Error("تُفتح المحادثة بعد التحقق من إيصال الدفعة الأولى");
       const conversation = await findConversationByCustomer(ctx.customerId);
       if (!conversation) throw new Error("افتح صفحة حسابك أولاً");
       await addConversationMessage({ conversationId: conversation.id, sender: "customer", body: input.body });

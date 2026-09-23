@@ -440,6 +440,13 @@ function ReceiptsReview() {
                 <button onClick={() => review.mutate({ id: receipt.id, status: "approved" })} disabled={review.isPending} className="h-9 rounded-lg bg-[#15915f] px-3 text-[11px] font-extrabold text-white disabled:opacity-50">تأكيد</button>
                 <button onClick={() => reject(receipt.id)} disabled={review.isPending} className="h-9 rounded-lg border border-slate-200 px-3 text-[11px] font-extrabold text-slate-600 disabled:opacity-50">رفض</button>
               </div>}
+              <p className="w-full text-[11px] text-slate-500">
+                <span className={`ml-2 rounded-md px-1.5 py-0.5 text-[10px] font-extrabold ${receipt.verifiedBy === "auto" ? "bg-[#e8f3fa] text-[#1f6f96]" : receipt.verifiedBy === "admin" ? "bg-slate-100 text-slate-600" : "bg-[#fff5d8] text-[#aa7412]"}`}>{receipt.verifiedBy === "auto" ? "تحقق آلي" : receipt.verifiedBy === "admin" ? "قرار يدوي" : "يحتاج مراجعة"}</span>
+                {receipt.recipientName && <>المستلم: <b className="text-[#0a2342]">{receipt.recipientName}</b> · </>}
+                {receipt.transactionRef && <>رقم العملية: <span className="font-mono" dir="ltr">{receipt.transactionRef}</span> · </>}
+                {receipt.receiptAt && <>وقت التحويل: {new Date(receipt.receiptAt).toLocaleString("ar-SY", { dateStyle: "short", timeStyle: "short" })} · </>}
+                {receipt.receiptAmountUsd && <>مبلغ الإيصال: ${Number(receipt.receiptAmountUsd).toFixed(0)}</>}
+              </p>
               {receipt.note && <p className="w-full text-[11px] text-slate-400">ملاحظة: {receipt.note}</p>}
             </div>
           ))}

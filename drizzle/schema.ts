@@ -183,6 +183,12 @@ export const customerPayments = mysqlTable("customerPayments", {
   mimeType: varchar("mimeType", { length: 120 }).notNull(),
   status: mysqlEnum("status", ["pending", "approved", "rejected"]).default("pending").notNull(),
   note: varchar("note", { length: 255 }),
+  /** Fields read from the receipt image by the automatic check. */
+  transactionRef: varchar("transactionRef", { length: 64 }),
+  receiptAt: timestamp("receiptAt"),
+  recipientName: varchar("recipientName", { length: 160 }),
+  receiptAmountUsd: decimal("receiptAmountUsd", { precision: 10, scale: 2 }),
+  verifiedBy: mysqlEnum("verifiedBy", ["auto", "admin"]),
   reviewedAt: timestamp("reviewedAt"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
