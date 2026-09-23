@@ -1,5 +1,5 @@
 import { SHAM_CASH_WHATSAPP_NUMBER, WHATSAPP_SETTING_KEY, isValidWhatsAppNumber, normalizeWhatsAppNumber } from "@shared/whatsapp";
-import { PAYMENT_SETTING_KEYS, paymentReferenceFor } from "@shared/payment";
+import { PAYMENT_SETTING_KEYS, WHATSAPP_VISIBLE_KEY, paymentReferenceFor } from "@shared/payment";
 import { SYRIAN_POUND_PER_USD } from "@shared/storeConstants";
 import { z } from "zod";
 import { createIncompleteCheckoutLead, getStoredFile } from "../db";
@@ -103,7 +103,8 @@ export const settingsRouter = router({
     try { const url = new URL(process.env.DATABASE_URL ?? ""); databaseHost = `${url.hostname}:${url.port || "3306"}${url.pathname}`; } catch { /* unset or malformed */ }
     return { migration: migrationState, tables, tablesError, cwd: process.cwd(), databaseHost };
   }),
-  public: publicProcedure.query(async () => ({ whatsappNumber: await resolveWhatsAppNumber(), sypRate: (await readPaymentSettings()).sypRate })),
+  public: publicProcedure.query(async () => ({ whatsappNumber: await resolveWhatsAppNumber(), sypRate: (await readPaymentSettings()).sypRate, whatsappVisible: (await getStoreSetting(WHATSAPP_VISIBLE_KEY)) !== "0" })),
+  setWhatsAppVisible: adminProcedure.input(z.object({ visible: z.boolean() })).mutation(async ({ input }) => { await setStoreSetting(WHATSAPP_VISIBLE_KEY, input.visible ? "1" : "0"); return { visible: input.visible } as const; }),
   updateWhatsApp: adminProcedure
     .input(z.object({ whatsappNumber: z.string().trim().min(1).max(32) }))
     .mutation(async ({ input }) => {

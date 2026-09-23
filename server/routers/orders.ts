@@ -1,7 +1,10 @@
 import { nanoid } from "nanoid";
 import { z } from "zod";
 import { IDENTITY_DOCUMENT_TYPES, JOB_NATURE_OPTIONS } from "../../shared/storeConstants";
-import { createIncompleteCheckoutLead, createInstallmentOrder, recordWhatsAppContact, getIncompleteCheckoutLeads, getInstallmentOrders, reviewInstallmentPaymentProof, updateIncompleteCheckoutLeadStatus, updateInstallmentOrderStatus } from "../db";
+import { createHmac, timingSafeEqual } from "node:crypto";
+import { paymentReferenceFor } from "@shared/payment";
+import { ENV } from "../_core/env";
+import { getIncompleteCheckoutLeadById, createIncompleteCheckoutLead, createInstallmentOrder, recordWhatsAppContact, getIncompleteCheckoutLeads, getInstallmentOrders, reviewInstallmentPaymentProof, updateIncompleteCheckoutLeadStatus, updateInstallmentOrderStatus } from "../db";
 import { calculateInstallmentPlan } from "../installment";
 import { adminProcedure, publicProcedure, router } from "../_core/trpc";
 import { storageGetSignedUrl, storagePut } from "../storage";
@@ -58,6 +61,19 @@ export const incompleteLeadInput = z.object({
 });
 
 const MAX_PROOF_BYTES = 3 * 1024 * 1024;
+
+/** `<leadId>.<hmac>` — unguessable, so a resume link exposes only the row it was minted for. */
+function resumeToken(leadId: number): string {
+  const sig = createHmac("sha256", ENV.cookieSecret || "horizonline").update(`resume:${leadId}`).digest("base64url").slice(0, 32);
+  return `${leadId}.${sig}`;
+}
+function verifyResumeToken(token: string): number | null {
+  const [idPart, sig] = token.split(".");
+  const id = Number(idPart);
+  if (!Number.isInteger(id) || id <= 0 || !sig) return null;
+  const expected = resumeToken(id).split(".")[1];
+  return sig.length === expected.length && timingSafeEqual(Buffer.from(sig), Buffer.from(expected)) ? id : null;
+}
 const MAX_IDENTITY_DOCUMENT_BYTES = 4 * 1024 * 1024;
 
 function decodePaymentProof(dataUrl: string, mimeType: string) {
@@ -214,6 +230,24 @@ export const ordersRouter = router({
     }),
 
   incompleteList: adminProcedure.query(async () => getIncompleteCheckoutLeads()),
+
+  /** A link the store can send by SMS or read over the phone: it reopens the customer's checkout on the payment step under their reference. */
+  resumeLink: adminProcedure.input(z.object({ leadId: z.number().int().positive() })).query(async ({ input, ctx }) => {
+    const lead = await getIncompleteCheckoutLeadById(input.leadId);
+    if (!lead) throw new Error("سجل المتابعة غير موجود");
+    const proto = String(ctx.req.headers["x-forwarded-proto"] ?? "https").split(",")[0];
+    const origin = `${proto}://${ctx.req.headers.host}`;
+    return { url: `${origin}/?r=${resumeToken(lead.id)}`, reference: paymentReferenceFor(lead.id) };
+  }),
+  resumeLead: publicProcedure.input(z.object({ token: z.string().min(10).max(120) })).query(async ({ input }) => {
+    const id = verifyResumeToken(input.token);
+    const lead = id ? await getIncompleteCheckoutLeadById(id) : null;
+    if (!lead || lead.status === "converted") throw new Error("انتهت صلاحية هذا الرابط أو اكتمل الطلب");
+    return {
+      leadId: lead.id, reference: paymentReferenceFor(lead.id), productTitle: lead.productTitle, productHandle: lead.productHandle,
+      customerName: lead.customerName, phone: lead.phone ?? "", province: lead.province ?? "", downPaymentUsd: Number(lead.downPaymentUsd) as 100 | 150 | 300, months: lead.months,
+    };
+  }),
 
   updateIncompleteStatus: adminProcedure
     .input(z.object({ id: z.number().int().positive(), status: z.enum(["new", "contacted", "converted", "closed"]) }))

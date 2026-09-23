@@ -110,6 +110,13 @@ export async function createIncompleteCheckoutLead(lead: InsertIncompleteCheckou
   return result.insertId;
 }
 
+export async function getIncompleteCheckoutLeadById(id: number): Promise<IncompleteCheckoutLead | null> {
+  const db = await getDb();
+  if (!db) return null;
+  const [row] = await db.select().from(incompleteCheckoutLeads).where(eq(incompleteCheckoutLeads.id, id)).limit(1);
+  return row ?? null;
+}
+
 export async function getIncompleteCheckoutLeads(): Promise<IncompleteCheckoutLead[]> {
   const db = await getDb();
   if (!db) return [];

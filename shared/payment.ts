@@ -7,6 +7,9 @@ export const PAYMENT_SETTING_KEYS = {
   sypRate: "paymentSypRate",
 } as const;
 
+/** "0" hides the WhatsApp button and footer link, keeping customers on the site while no one answers that channel. */
+export const WHATSAPP_VISIBLE_KEY = "whatsappVisible";
+
 /** Short reference the customer can write in the transfer note, derived from the follow-up row opened when they pressed "pay". */
 export const paymentReferenceFor = (leadId: number) => `HZ-P${String(leadId).padStart(4, "0")}`;
 

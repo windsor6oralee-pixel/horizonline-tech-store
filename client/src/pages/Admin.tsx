@@ -143,6 +143,9 @@ type Lead = { id: number; customerName: string; phone: string | null; province: 
 
 function LeadDetail({ lead, close, setStatus, saving }: { lead: Lead; close: () => void; setStatus: (status: keyof typeof leadStatusLabels) => void; saving: boolean }) {
   const waDigits = lead.phone ? toInternationalDigits(lead.phone) : "";
+  const resumeLink = trpc.orders.resumeLink.useQuery({ leadId: lead.id }, { enabled: lead.status !== "converted", staleTime: Infinity });
+  const smsText = resumeLink.data ? `مرحباً ${lead.customerName.split(" ")[0]}، هنا Horizonline Tech Store. طلبك (${lead.productTitle}) محفوظ برقم المرجع ${resumeLink.data.reference}. لإتمام الدفعة الأولى عبر شام كاش وإرفاق الإيصال افتح الرابط: ${resumeLink.data.url} — دفعتك مضمونة وتُعاد كاملة إن لم يُعتمد الطلب.` : "";
+  const copyText = async (value: string, label: string) => { try { await navigator.clipboard.writeText(value); toast.success(`نُسخ ${label}`); } catch { toast.error("تعذر النسخ"); } };
   const when = (value: string | Date) => new Date(value).toLocaleString("ar-SY", { dateStyle: "medium", timeStyle: "short" });
   const copyPhone = async () => {
     if (!lead.phone) return;
@@ -180,6 +183,16 @@ function LeadDetail({ lead, close, setStatus, saving }: { lead: Lead; close: () 
           <a href={`tel:${lead.phone}`} className="flex h-11 items-center justify-center gap-2 rounded-xl bg-[#0a2342] text-xs font-extrabold text-white hover:bg-[#103058]"><PhoneCall className="h-4 w-4" />اتصال</a>
           <a href={whatsAppChatLink(waDigits)} target="_blank" rel="noopener noreferrer" className="flex h-11 items-center justify-center gap-2 rounded-xl bg-[#25D366] text-xs font-extrabold text-white hover:brightness-95"><MessageCircle className="h-4 w-4" />واتساب</a>
           <button onClick={copyPhone} className="flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 text-xs font-extrabold text-slate-600 hover:bg-slate-50"><Copy className="h-4 w-4" />نسخ الرقم</button>
+        </div>}
+
+        {resumeLink.data && <div className="rounded-2xl border border-[#f1d38a] bg-[#fff9e8] p-4">
+          <p className="text-xs font-extrabold text-[#8a6a12]">رابط استئناف الدفع · المرجع <span className="font-mono" dir="ltr">{resumeLink.data.reference}</span></p>
+          <p className="mt-1 text-[11px] leading-5 text-slate-600">يفتح للعميل خطوة الدفع مباشرة ببياناته ورقم مرجعه. أرسله برسالة SMS أو أملِه في مكالمة.</p>
+          <p className="mt-2 truncate rounded-lg bg-white px-3 py-2 font-mono text-[11px] text-slate-600" dir="ltr">{resumeLink.data.url}</p>
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            <button onClick={() => copyText(resumeLink.data.url, "الرابط")} className="flex h-10 items-center justify-center gap-2 rounded-xl bg-[#0a2342] text-xs font-extrabold text-white"><Link2 className="h-4 w-4" />نسخ الرابط</button>
+            {lead.phone ? <a href={`sms:${lead.phone}?body=${encodeURIComponent(smsText)}`} onClick={() => copyText(smsText, "نص الرسالة")} className="flex h-10 items-center justify-center gap-2 rounded-xl border border-[#0a2342] text-xs font-extrabold text-[#0a2342]"><Send className="h-4 w-4" />رسالة SMS جاهزة</a> : <button onClick={() => copyText(smsText, "نص الرسالة")} className="flex h-10 items-center justify-center gap-2 rounded-xl border border-[#0a2342] text-xs font-extrabold text-[#0a2342]"><Copy className="h-4 w-4" />نسخ نص الرسالة</button>}
+          </div>
         </div>}
 
         <LeadConversation lead={lead} />
@@ -567,11 +580,13 @@ function WhatsAppSettings() {
     onError: error => toast.error(error.message || "تعذر حفظ الرقم"),
   });
   const dirty = data ? normalizeWhatsAppNumber(value) !== data.whatsappNumber : false;
+  const toggle = trpc.settings.setWhatsAppVisible.useMutation({ onSuccess: result => { toast.success(result.visible ? "زر واتساب ظاهر للزبائن" : "أُخفي زر واتساب — يبقى الزبائن داخل الموقع"); utils.settings.public.invalidate(); }, onError: error => toast.error(error.message || "تعذر الحفظ") });
   const submit = (event: FormEvent) => { event.preventDefault(); save.mutate({ whatsappNumber: value }); };
   return <section className="mt-7 rounded-[25px] border border-slate-200 bg-white p-6">
     <div className="flex items-start gap-4"><span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[#e8f3fa] text-[#1f6f96]"><MessageCircle className="h-5 w-5" /></span><div className="min-w-0 flex-1"><h2 className="font-extrabold text-[#0a2342]">رقم واتساب المتجر</h2><p className="mt-1 text-xs leading-6 text-slate-500">يُستخدم في زر «ادفع الآن عبر واتساب» داخل صفحة الدفع وفي الفوتر. أدخله بالصيغة الدولية مع رمز الدولة.</p>
       <form onSubmit={submit} className="mt-4 flex flex-col gap-3 sm:flex-row"><input dir="ltr" inputMode="tel" value={value} onChange={event => setValue(event.target.value)} placeholder="+1 272 746 2228" disabled={isLoading} className="form-field font-mono sm:max-w-xs" /><button type="submit" disabled={!dirty || save.isPending || isLoading} className="button-dark h-[49px] rounded-xl px-6 text-sm disabled:cursor-not-allowed disabled:opacity-50">{save.isPending ? "جارٍ الحفظ…" : "حفظ الرقم"}</button></form>
       {data && <p className="mt-3 text-[11px] font-bold text-slate-400" dir="ltr">الحالي: {formatWhatsAppNumber(data.whatsappNumber)} · wa.me/{data.whatsappNumber}</p>}
+      {data && <label className="mt-4 flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-slate-200 p-3"><span><b className="block text-xs text-[#0a2342]">إظهار زر واتساب للزبائن</b><span className="mt-0.5 block text-[11px] text-slate-500">عند الإيقاف يختفي الزر العائم ورابط الفوتر، فيكمل الزبون الدفع والمحادثة داخل الموقع. شغّله حين يتوفر من يجيب على واتساب.</span></span><input type="checkbox" checked={data.whatsappVisible} disabled={toggle.isPending} onChange={event => toggle.mutate({ visible: event.target.checked })} className="h-5 w-5 accent-[#1f6f96]" /></label>}
     </div></div>
   </section>;
 }

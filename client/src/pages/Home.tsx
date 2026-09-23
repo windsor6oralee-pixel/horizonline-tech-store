@@ -11,7 +11,7 @@ import StoreFooter from "@/components/StoreFooter";
 import PaymentPolicyNotice from "@/components/PaymentPolicyNotice";
 import DeliveryRulesBento from "@/components/DeliveryRulesBento";
 import { usePresence } from "@/hooks/usePresence";
-import { readCheckoutDraft } from "@/lib/checkoutDraft";
+import { readCheckoutDraft, writeCheckoutDraft } from "@/lib/checkoutDraft";
 import { BrandLockup } from "@/components/BrandLogo";
 
 type CatalogProduct = SelectedProduct & { demo?: boolean };
@@ -78,7 +78,21 @@ export default function Home() {
   usePresence(checkoutProduct ? null : details ? "product" : "home", details?.title ?? null);
   const products: CatalogProduct[] = liveProducts.length ? liveProducts : demoProducts;
   // A payment that was started but not finished: offer to pick it up with the same reference.
-  const [draft] = useState(() => (typeof window === "undefined" ? null : readCheckoutDraft()));
+  const [draft, setDraft] = useState(() => (typeof window === "undefined" ? null : readCheckoutDraft()));
+  // A resume link sent by the store (SMS / phone): rebuild the draft from the server row, then open the payment step.
+  const resumeToken = typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("r");
+  const resume = trpc.orders.resumeLead.useQuery({ token: resumeToken ?? "" }, { enabled: Boolean(resumeToken), retry: false });
+  useEffect(() => {
+    if (!resume.data) return;
+    const lead = resume.data;
+    const target = products.find(product => product.handle === lead.productHandle) ?? products.find(product => product.title === lead.productTitle) ?? null;
+    if (!target) return;
+    writeCheckoutDraft({ handle: target.handle, productTitle: target.title, gift: "غطاء حماية فاخر", downPayment: lead.downPaymentUsd, months: lead.months, eligibility: { fullName: lead.customerName, age: "", jobNature: "", hasExistingInstallments: "no", identityDocumentType: "syrian_id" }, delivery: { province: lead.province, area: "", landmark: "", recipientName: lead.customerName, phone: lead.phone, alternatePhone: "" }, leadId: lead.leadId, reference: lead.reference, stage: "pay" });
+    setDraft(readCheckoutDraft());
+    window.history.replaceState(null, "", "/");
+    setCheckoutProduct(target);
+  }, [resume.data]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (resume.error) toast.error(resume.error.message); }, [resume.error]);
   const draftProduct = draft ? products.find(product => product.handle === draft.handle) ?? null : null;
   const filteredProducts = brand === "الكل" ? products : products.filter(product => brandOf(product) === brand);
 
