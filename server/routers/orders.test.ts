@@ -17,6 +17,17 @@ const { createInstallmentOrderMock, createIncompleteCheckoutLeadMock, getIncompl
 const { storagePutMock } = vi.hoisted(() => ({ storagePutMock: vi.fn() }));
 
 vi.mock("../db", () => ({
+  proofHashInUse: vi.fn().mockResolvedValue(false),
+  getStoreSetting: vi.fn().mockResolvedValue(null),
+  setStoreSetting: vi.fn(),
+  getStoredFile: vi.fn().mockResolvedValue(null),
+  listTables: vi.fn().mockResolvedValue([]),
+  migrationState: { status: "ok", error: null, folder: "" },
+  getCustomerByPhone: vi.fn().mockResolvedValue(null),
+  findConversationByCustomer: vi.fn().mockResolvedValue(null),
+  createConversation: vi.fn(),
+  addConversationMessage: vi.fn(),
+  getInstallmentOrderById: vi.fn().mockResolvedValue(null),
   createInstallmentOrder: createInstallmentOrderMock,
   createIncompleteCheckoutLead: createIncompleteCheckoutLeadMock,
   getIncompleteCheckoutLeads: getIncompleteCheckoutLeadsMock,
@@ -26,6 +37,9 @@ vi.mock("../db", () => ({
   updateInstallmentOrderStatus: vi.fn(),
 }));
 vi.mock("../storage", () => ({ storagePut: storagePutMock }));
+
+// A PNG header claiming 1080x1920: passes the local "real image of receipt size" check without any pixels.
+const receiptPng = (() => { const b = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==", "base64"); b.writeUInt32BE(1080, 16); b.writeUInt32BE(1920, 20); return "data:image/png;base64," + b.toString("base64"); })();
 
 const validOrder = {
   productTitle: "iPhone 16 Pro",
@@ -44,7 +58,7 @@ const validOrder = {
   recipientName: "أحمد محمد علي",
   phone: "0999999999",
   paymentMethod: "sham_cash" as const,
-  paymentProof: { fileName: "sham-cash-receipt.png", mimeType: "image/png" as const, dataUrl: "data:image/png;base64,aGVsbG8=" },
+  paymentProof: { fileName: "sham-cash-receipt.png", mimeType: "image/png" as const, dataUrl: receiptPng },
 };
 
 function guestContext(): TrpcContext {
