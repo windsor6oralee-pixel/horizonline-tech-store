@@ -283,6 +283,8 @@ body { font-family: "Cairo", sans-serif; direction: rtl; background: #f6f9fc; co
 @keyframes next-steps-in { from { opacity: 0; transform: translateY(10px); } }
 @keyframes next-steps-line { from { transform: scaleY(0); } }
 @keyframes next-step-soon { 0%, 65%, 100% { box-shadow: 0 0 0 0 rgba(138,217,227,.75); } 32% { box-shadow: 0 0 0 9px rgba(138,217,227,0); } }
+.receipt-alert { animation: receipt-alert 2.4s ease-in-out 4; }
+@keyframes receipt-alert { 0%, 100% { box-shadow: 0 0 0 0 rgba(170,116,18,0); } 50% { box-shadow: 0 0 0 8px rgba(170,116,18,.18); } }
 @keyframes spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; scroll-behavior: auto !important; } }
 

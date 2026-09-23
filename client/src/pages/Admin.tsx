@@ -2,12 +2,13 @@ import { useAuth } from "@/_core/hooks/useAuth";
 import DashboardLayout from "@/components/DashboardLayout";
 import StoreFooter from "@/components/StoreFooter";
 import { trpc } from "@/lib/trpc";
-import { CalendarClock, CheckCircle2, ClipboardList, Copy, ExternalLink, FileText, IdCard, Laptop, Link2, Loader2, MapPin, MessageCircle, MessagesSquare, PhoneCall, QrCode, Receipt, Send, ShieldAlert, Smartphone, Tablet, Truck, Users, X, XCircle } from "lucide-react";
+import { CalendarClock, CheckCircle2, ClipboardList, Copy, ExternalLink, FileText, IdCard, Laptop, Link2, Loader2, MapPin, MessageCircle, MessagesSquare, PhoneCall, QrCode, Receipt, Send, ShieldAlert, TriangleAlert, Smartphone, Tablet, Truck, Users, X, XCircle } from "lucide-react";
 import { FormEvent, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { formatWhatsAppNumber, normalizeWhatsAppNumber } from "@shared/whatsapp";
 import { DEVICE_LABELS, PRESENCE_STEPS, type Device, stepIndex, stepLabel } from "@shared/presence";
 import { PAYMENT_STATUS_LABELS } from "@shared/payment";
+import { DELIVERY_ETAS, shippingMessage } from "@shared/shippingMessage";
 import { toInternationalDigits, whatsAppChatLink } from "@shared/whatsapp";
 
 const statusLabels = { new: "جديد", under_review: "قيد المراجعة", approved: "معتمد", needs_contact: "يتطلب تواصلاً", cancelled: "ملغي" } as const;
@@ -35,6 +36,7 @@ export default function Admin() {
   return <DashboardLayout>
     {!isAdmin ? <section className="mx-auto max-w-2xl rounded-[28px] border border-amber-200 bg-amber-50 p-8 text-center"><ShieldAlert className="mx-auto h-9 w-9 text-amber-600" /><h1 className="mt-4 text-xl font-extrabold text-amber-950">هذه الصفحة للمدير فقط</h1><p className="mt-2 text-sm leading-7 text-amber-800">سجّل الدخول بالحساب المعيّن كمدير للمشروع لعرض البيانات الحساسة للطلبات.</p></section> : <>
       <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end"><div><p className="eyebrow">HORIZONLINE / OPERATIONS</p><h1 className="mt-2 text-3xl font-extrabold tracking-tight text-[#0a2342]">طلبات التقسيط</h1><p className="mt-2 text-sm text-slate-500">راجع التأهل المبدئي وبيانات التسليم ثم حدّث الحالة.</p></div><span className="rounded-full bg-[#e8f3fa] px-4 py-2 text-sm font-bold text-[#1f6f96]">لا تُشارك بيانات العملاء خارج نطاق الطلب</span></div>
+      <PendingReceiptsAlert />
       <div className="mt-7 grid gap-4 md:grid-cols-4"><Stat icon={ClipboardList} value={total} label="إجمالي الطلبات" /><Stat icon={CheckCircle2} value={approved} label="طلبات معتمدة" tone="green" /><Stat icon={FileText} value={pendingProofs} label="إيصالات بانتظار المراجعة" tone="yellow" /><Stat icon={PhoneCall} value={newLeads} label="متابعات جديدة" tone="blue" /></div>
       <LiveVisitors />
       <CustomerInbox />
@@ -355,6 +357,84 @@ function Detail({ icon: Icon, label, value, mono }: { icon: typeof PhoneCall; la
   </div>;
 }
 
+function PendingReceiptsAlert() {
+  const utils = trpc.useUtils();
+  const { data: receipts = [] } = trpc.payments.list.useQuery(undefined, { refetchInterval: 20_000 });
+  const pending = receipts.filter(receipt => receipt.status === "pending");
+  const [openId, setOpenId] = useState<number | null>(null);
+  const [eta, setEta] = useState<string>(DELIVERY_ETAS[0].value);
+  const [message, setMessage] = useState("");
+  const refresh = () => { utils.payments.list.invalidate(); utils.conversations.list.invalidate(); utils.conversations.thread.invalidate(); };
+  const approve = trpc.payments.approveAndNotify.useMutation({
+    onSuccess: () => { toast.success("تم تأكيد الدفعة وإرسال تعليمات الشحن للعميل"); setOpenId(null); refresh(); },
+    onError: error => toast.error(error.message || "تعذر التأكيد"),
+  });
+  const reject = trpc.payments.review.useMutation({
+    onSuccess: () => { toast.success("تم رفض الإيصال"); refresh(); },
+    onError: error => toast.error(error.message || "تعذر الحفظ"),
+  });
+  const startApprove = (receipt: (typeof pending)[number]) => {
+    setOpenId(receipt.id);
+    setEta(DELIVERY_ETAS[0].value);
+    setMessage(shippingMessage({ customerName: receipt.customerName, eta: DELIVERY_ETAS[0].value }));
+  };
+  const changeEta = (receipt: (typeof pending)[number], value: string) => {
+    setEta(value);
+    setMessage(shippingMessage({ customerName: receipt.customerName, eta: value }));
+  };
+  const doReject = (id: number) => {
+    const note = window.prompt("سبب الرفض (يظهر للعميل):", "الإيصال غير مطابق — أعد رفع لقطة واضحة لعملية التحويل");
+    if (note === null) return;
+    reject.mutate({ id, status: "rejected", note });
+  };
+
+  if (pending.length === 0) return null;
+
+  return <section className="receipt-alert mt-7 overflow-hidden rounded-[25px] border-2 border-[#f0c987] bg-[#fffaf0]">
+    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#f3e2bd] px-6 py-4">
+      <div className="flex items-center gap-3">
+        <span className="relative grid h-11 w-11 place-items-center rounded-xl bg-[#aa7412] text-white"><TriangleAlert className="h-5 w-5" /><span className="absolute -right-1 -top-1 flex h-3 w-3"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#aa7412] opacity-75" /><span className="relative inline-flex h-3 w-3 rounded-full bg-[#aa7412]" /></span></span>
+        <div><h2 className="font-extrabold text-[#0a2342]">{pending.length === 1 ? "إيصال دفع بانتظار تأكيدك" : `${pending.length} إيصالات دفع بانتظار تأكيدك`}</h2><p className="mt-0.5 text-xs text-slate-600">افتح الإيصال وطابق المستلم والمبلغ في تطبيق المحفظة، ثم أكّد لتُرسل تعليمات الشحن للعميل فوراً.</p></div>
+      </div>
+    </div>
+    <div className="divide-y divide-[#f3e2bd]">
+      {pending.map(receipt => (
+        <div key={receipt.id} className="px-6 py-4">
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+            <div className="min-w-[180px] flex-1"><p className="text-sm font-extrabold text-[#0a2342]">{receipt.customerName}</p><p className="mt-0.5 font-mono text-[11px] text-slate-500" dir="ltr">{receipt.customerPhone}</p></div>
+            <span className="font-mono text-lg font-extrabold text-[#0a2342]">${Number(receipt.amountUsd).toFixed(0)}</span>
+            <span className="text-[11px] text-slate-500">{new Date(receipt.createdAt).toLocaleString("ar-SY", { dateStyle: "short", timeStyle: "short" })}</span>
+            <a href={`/api/files/${receipt.fileKey}`} target="_blank" rel="noopener noreferrer" className="flex h-9 items-center gap-1.5 rounded-lg border border-[#0a2342] bg-white px-3 text-[11px] font-extrabold text-[#0a2342] hover:bg-[#f2fafd]"><ExternalLink className="h-3.5 w-3.5" />عرض الإيصال</a>
+            {openId === receipt.id
+              ? <button onClick={() => setOpenId(null)} className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-[11px] font-extrabold text-slate-600">إلغاء</button>
+              : <button onClick={() => startApprove(receipt)} disabled={approve.isPending} className="h-9 rounded-lg bg-[#15915f] px-4 text-[11px] font-extrabold text-white disabled:opacity-50">تأكيد وإرسال تعليمات الشحن</button>}
+            <button onClick={() => doReject(receipt.id)} disabled={reject.isPending} className="h-9 rounded-lg border border-[#e3b4ab] bg-white px-3 text-[11px] font-extrabold text-[#a5301f] disabled:opacity-50">رفض</button>
+          </div>
+          {(receipt.recipientName || receipt.transactionRef || receipt.note) && <p className="mt-2 text-[11px] leading-5 text-slate-500">
+            {receipt.recipientName && <>المستلم في الإيصال: <b className="text-[#0a2342]">{receipt.recipientName}</b> · </>}
+            {receipt.transactionRef && <>رقم العملية: <span className="font-mono" dir="ltr">{receipt.transactionRef}</span> · </>}
+            {receipt.receiptAt && <>وقت التحويل: {new Date(receipt.receiptAt).toLocaleString("ar-SY", { dateStyle: "short", timeStyle: "short" })} · </>}
+            {receipt.note && <span className="text-[#aa7412]">{receipt.note}</span>}
+          </p>}
+          {openId === receipt.id && <form onSubmit={event => { event.preventDefault(); approve.mutate({ id: receipt.id, message }); }} className="mt-4 rounded-2xl border border-[#d6e5f0] bg-white p-4">
+            <p className="text-xs font-extrabold text-[#0a2342]">الرسالة التي ستصل العميل فور التأكيد</p>
+            <label className="mt-3 block text-[11px] font-bold text-slate-600">موعد التسليم المتوقع
+              <select value={eta} onChange={event => changeEta(receipt, event.target.value)} className="form-field mt-1.5 h-10 text-xs">
+                {DELIVERY_ETAS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+              </select>
+            </label>
+            <textarea value={message} onChange={event => setMessage(event.target.value)} rows={7} maxLength={2000} className="form-field mt-3 h-auto resize-y py-2 text-xs leading-6" />
+            <div className="mt-3 flex justify-end gap-2">
+              <button type="button" onClick={() => setOpenId(null)} className="h-10 rounded-xl border border-slate-200 px-4 text-xs font-extrabold text-slate-600">إلغاء</button>
+              <button type="submit" disabled={approve.isPending || !message.trim()} className="h-10 rounded-xl bg-[#15915f] px-5 text-xs font-extrabold text-white disabled:opacity-50">{approve.isPending ? "جارٍ التأكيد…" : "تأكيد الدفعة وإرسال الرسالة"}</button>
+            </div>
+          </form>}
+        </div>
+      ))}
+    </div>
+  </section>;
+}
+
 function PaymentSettings() {
   const utils = trpc.useUtils();
   const { data, isLoading } = trpc.settings.paymentSettings.useQuery();
@@ -419,7 +499,7 @@ function ReceiptsReview() {
     <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-6 py-5">
       <div className="flex items-center gap-4">
         <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[#e8f3fa] text-[#1f6f96]"><Receipt className="h-5 w-5" /></span>
-        <div><h2 className="font-extrabold text-[#0a2342]">إيصالات الدفعة الأولى</h2><p className="mt-1 text-xs text-slate-500">ما رفعه العملاء المسجّلون بعد الدفع إلى محفظة المتجر. أكّد أو ارفض بعد مطابقة المبلغ في تطبيق المحفظة.</p></div>
+        <div><h2 className="font-extrabold text-[#0a2342]">سجل إيصالات الدفعة الأولى</h2><p className="mt-1 text-xs text-slate-500">كل ما رفعه العملاء. الإيصالات المعلّقة تظهر أيضاً في التنبيه أعلى اللوحة.</p></div>
       </div>
       {pending > 0 && <span className="rounded-full bg-[#fff5d8] px-3 py-1 text-xs font-bold text-[#aa7412]">{pending} بانتظار المراجعة</span>}
     </div>

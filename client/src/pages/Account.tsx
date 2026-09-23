@@ -196,6 +196,11 @@ function PaymentSection() {
         <div>
           <b className="block text-sm text-[#0a2342]">{latest.status === "approved" ? "تم التحقق من دفعتك" : "وصلنا إيصالك وهو قيد المراجعة اليدوية"}</b>
           <p className="mt-1 text-xs leading-6 text-slate-500">${Number(latest.amountUsd).toFixed(0)} · {new Date(latest.createdAt).toLocaleString("ar-SY", { dateStyle: "medium", timeStyle: "short" })}{latest.status === "pending" && (latest.note ? ` — ${latest.note}` : " — سيراجعه الفريق وتُفتح المحادثة بعد التأكيد.")}</p>
+          {latest.status === "approved" && <ol className="mt-3 space-y-1.5 text-xs leading-6 text-slate-600">
+            <li>1. نجهّز جهازك ونسلّمه لشركة الشحن خلال 24 ساعة.</li>
+            <li>2. يتواصل معك مندوب DHL لتأكيد العنوان وموعد التسليم.</li>
+            <li>3. عند الاستلام أبرز هويتك ووقّع العقد — ولا تدفع أي مبلغ للمندوب.</li>
+          </ol>}
         </div>
       </div>
     )}
