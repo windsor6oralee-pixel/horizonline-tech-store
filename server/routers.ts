@@ -4,6 +4,7 @@ import { ADMIN_SESSION_COOKIE, createAdminSession, validateAdminCredentials } fr
 import { commerceRouter } from "./routers/commerce";
 import { ordersRouter } from "./routers/orders";
 import { accountRouter } from "./routers/account";
+import { maintenanceRouter } from "./routers/maintenance";
 import { paymentsRouter } from "./routers/payments";
 import { conversationsRouter } from "./routers/conversations";
 import { presenceRouter } from "./routers/presence";
@@ -47,6 +48,7 @@ export const appRouter = router({
   conversations: conversationsRouter,
   account: accountRouter,
   payments: paymentsRouter,
+  maintenance: maintenanceRouter,
 
   // TODO: add feature routers here, e.g.
   // todo: router({

@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, like, or, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import { IncompleteCheckoutLead, InsertIncompleteCheckoutLead, InsertInstallmentOrder, InsertUser, incompleteCheckoutLeads, installmentOrders, conversationMessages, conversations, customerPayments, customers, storeSettings, storedFiles, users, visitorSessions } from "../drizzle/schema";
 import { ENV } from './_core/env';
@@ -477,4 +477,78 @@ export async function reviewCustomerPayment(id: number, status: "approved" | "re
   const db = await getDb();
   if (!db) throw new Error("قاعدة البيانات غير متاحة حالياً");
   await db.update(customerPayments).set({ status, note, reviewedAt: new Date(), verifiedBy: "admin" }).where(eq(customerPayments.id, id));
+}
+
+/** Records that look like test data: matched by phone or by a name fragment. Never deletes by itself. */
+export async function previewTestData(input: { phones: string[]; nameFragments: string[]; sessionPrefixes: string[] }) {
+  const db = await getDb();
+  if (!db) return { orders: [], leads: [], customers: [], payments: [], conversations: [], visitorSessions: 0 };
+  const nameOr = (col: any) => or(...input.nameFragments.map(f => like(col, `%${f}%`)));
+  const orders = await db.select({ id: installmentOrders.id, orderNumber: installmentOrders.orderNumber, customerName: installmentOrders.customerName, phone: installmentOrders.phone, productTitle: installmentOrders.productTitle, status: installmentOrders.status })
+    .from(installmentOrders).where(or(inArray(installmentOrders.phone, input.phones.length ? input.phones : ["-"]), nameOr(installmentOrders.customerName)));
+  const leads = await db.select({ id: incompleteCheckoutLeads.id, customerName: incompleteCheckoutLeads.customerName, phone: incompleteCheckoutLeads.phone, productTitle: incompleteCheckoutLeads.productTitle })
+    .from(incompleteCheckoutLeads).where(or(inArray(incompleteCheckoutLeads.phone, input.phones.length ? input.phones : ["-"]), nameOr(incompleteCheckoutLeads.customerName)));
+  const custs = await db.select({ id: customers.id, name: customers.name, phone: customers.phone })
+    .from(customers).where(or(inArray(customers.phone, input.phones.length ? input.phones : ["-"]), nameOr(customers.name)));
+  const custIds = custs.map(c => c.id);
+  const payments = custIds.length ? await db.select({ id: customerPayments.id, customerId: customerPayments.customerId, status: customerPayments.status }).from(customerPayments).where(inArray(customerPayments.customerId, custIds)) : [];
+  const convs = await db.select({ id: conversations.id, customerName: conversations.customerName, customerId: conversations.customerId, leadId: conversations.leadId })
+    .from(conversations).where(or(custIds.length ? inArray(conversations.customerId, custIds) : sql`0`, leads.length ? inArray(conversations.leadId, leads.map(l => l.id)) : sql`0`, nameOr(conversations.customerName)));
+  const [vs] = await db.select({ total: sql<number>`count(*)` }).from(visitorSessions)
+    .where(or(...input.sessionPrefixes.map(p => like(visitorSessions.sessionId, `${p}%`))));
+  return { orders, leads, customers: custs, payments, conversations: convs, visitorSessions: Number(vs?.total ?? 0) };
+}
+
+/** Deletes exactly the ids given, with their dependent rows and stored files. */
+export async function purgeRecords(input: { orderIds: number[]; leadIds: number[]; customerIds: number[]; conversationIds: number[]; sessionPrefixes: string[] }) {
+  const db = await getDb();
+  if (!db) throw new Error("قاعدة البيانات غير متاحة حالياً");
+  const removed = { orders: 0, leads: 0, customers: 0, payments: 0, conversations: 0, messages: 0, files: 0, visitorSessions: 0 };
+  const fileKeys: string[] = [];
+
+  if (input.orderIds.length) {
+    const rows = await db.select({ p: installmentOrders.paymentProofKey, i: installmentOrders.identityDocumentKey }).from(installmentOrders).where(inArray(installmentOrders.id, input.orderIds));
+    rows.forEach(r => { if (r.p) fileKeys.push(r.p); if (r.i) fileKeys.push(r.i); });
+    const res = await db.delete(installmentOrders).where(inArray(installmentOrders.id, input.orderIds));
+    removed.orders = Number((res as any)[0]?.affectedRows ?? input.orderIds.length);
+  }
+  if (input.customerIds.length) {
+    const pays = await db.select({ id: customerPayments.id, key: customerPayments.fileKey }).from(customerPayments).where(inArray(customerPayments.customerId, input.customerIds));
+    pays.forEach(p => fileKeys.push(p.key));
+    if (pays.length) { await db.delete(customerPayments).where(inArray(customerPayments.id, pays.map(p => p.id))); removed.payments = pays.length; }
+    const convs = await db.select({ id: conversations.id }).from(conversations).where(inArray(conversations.customerId, input.customerIds));
+    input.conversationIds.push(...convs.map(c => c.id));
+    await db.delete(customers).where(inArray(customers.id, input.customerIds));
+    removed.customers = input.customerIds.length;
+  }
+  if (input.leadIds.length) {
+    const convs = await db.select({ id: conversations.id }).from(conversations).where(inArray(conversations.leadId, input.leadIds));
+    input.conversationIds.push(...convs.map(c => c.id));
+    await db.delete(incompleteCheckoutLeads).where(inArray(incompleteCheckoutLeads.id, input.leadIds));
+    removed.leads = input.leadIds.length;
+  }
+  const convIds = Array.from(new Set(input.conversationIds));
+  if (convIds.length) {
+    const msgs = await db.select({ id: conversationMessages.id }).from(conversationMessages).where(inArray(conversationMessages.conversationId, convIds));
+    if (msgs.length) await db.delete(conversationMessages).where(inArray(conversationMessages.conversationId, convIds));
+    await db.delete(conversations).where(inArray(conversations.id, convIds));
+    removed.messages = msgs.length; removed.conversations = convIds.length;
+  }
+  if (fileKeys.length) {
+    await db.delete(storedFiles).where(inArray(storedFiles.key, fileKeys));
+    removed.files = fileKeys.length;
+  }
+  if (input.sessionPrefixes.length) {
+    const rows = await db.select({ id: visitorSessions.id }).from(visitorSessions).where(or(...input.sessionPrefixes.map(p => like(visitorSessions.sessionId, `${p}%`))));
+    if (rows.length) await db.delete(visitorSessions).where(inArray(visitorSessions.id, rows.map(r => r.id)));
+    removed.visitorSessions = rows.length;
+  }
+  return removed;
+}
+
+export async function countAll() {
+  const db = await getDb();
+  if (!db) return null;
+  const c = async (t: any) => Number((await db.select({ n: sql<number>`count(*)` }).from(t))[0]?.n ?? 0);
+  return { orders: await c(installmentOrders), leads: await c(incompleteCheckoutLeads), customers: await c(customers), payments: await c(customerPayments), conversations: await c(conversations), messages: await c(conversationMessages), files: await c(storedFiles), visitorSessions: await c(visitorSessions) };
 }
