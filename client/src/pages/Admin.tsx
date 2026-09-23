@@ -26,6 +26,8 @@ export default function Admin() {
   const total = orders.length;
   const approved = orders.filter(order => order.status === "approved").length;
   const pendingProofs = orders.filter(order => order.paymentProofStatus === "pending").length;
+  const { data: allReceipts = [] } = trpc.payments.list.useQuery(undefined, { enabled: isAdmin, refetchInterval: 20_000 });
+  const pendingReceipts = allReceipts.filter(receipt => receipt.status === "pending").length + pendingProofs;
   const newLeads = incompleteLeads.filter(lead => lead.status === "new").length;
   const { data: threads = [] } = trpc.conversations.list.useQuery(undefined, { enabled: isAdmin, refetchInterval: 30_000 });
   const unreadByLead = new Map(threads.filter(t => t.leadId).map(t => [t.leadId as number, t.unread]));
@@ -37,7 +39,7 @@ export default function Admin() {
     {!isAdmin ? <section className="mx-auto max-w-2xl rounded-[28px] border border-amber-200 bg-amber-50 p-8 text-center"><ShieldAlert className="mx-auto h-9 w-9 text-amber-600" /><h1 className="mt-4 text-xl font-extrabold text-amber-950">هذه الصفحة للمدير فقط</h1><p className="mt-2 text-sm leading-7 text-amber-800">سجّل الدخول بالحساب المعيّن كمدير للمشروع لعرض البيانات الحساسة للطلبات.</p></section> : <>
       <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end"><div><p className="eyebrow">HORIZONLINE / OPERATIONS</p><h1 className="mt-2 text-3xl font-extrabold tracking-tight text-[#0a2342]">طلبات التقسيط</h1><p className="mt-2 text-sm text-slate-500">راجع التأهل المبدئي وبيانات التسليم ثم حدّث الحالة.</p></div><span className="rounded-full bg-[#e8f3fa] px-4 py-2 text-sm font-bold text-[#1f6f96]">لا تُشارك بيانات العملاء خارج نطاق الطلب</span></div>
       <PendingReceiptsAlert />
-      <div className="mt-7 grid gap-4 md:grid-cols-4"><Stat icon={ClipboardList} value={total} label="إجمالي الطلبات" /><Stat icon={CheckCircle2} value={approved} label="طلبات معتمدة" tone="green" /><Stat icon={FileText} value={pendingProofs} label="إيصالات بانتظار المراجعة" tone="yellow" /><Stat icon={PhoneCall} value={newLeads} label="متابعات جديدة" tone="blue" /></div>
+      <div className="mt-7 grid gap-4 md:grid-cols-4"><Stat icon={ClipboardList} value={total} label="إجمالي الطلبات" /><Stat icon={CheckCircle2} value={approved} label="طلبات معتمدة" tone="green" /><Stat icon={FileText} value={pendingReceipts} label="إيصالات بانتظار المراجعة" tone="yellow" /><Stat icon={PhoneCall} value={newLeads} label="متابعات جديدة" tone="blue" /></div>
       <LiveVisitors />
       <CustomerInbox />
       <ReceiptsReview />
