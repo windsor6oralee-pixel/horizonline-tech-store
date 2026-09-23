@@ -11,6 +11,7 @@ import { storageGetSignedUrl, storagePut } from "../storage";
 import { localReceiptProblem, sha256 } from "../imageCheck";
 import { verifyReceipt } from "../receiptVerifier";
 import { readPaymentSettings } from "./settings";
+import { purgeRecords } from "../db";
 import { addConversationMessage, createConversation, findConversationByCustomer, getCustomerByPhone, getInstallmentOrderById, proofHashInUse } from "../db";
 import { nanoid as newToken } from "nanoid";
 
@@ -230,6 +231,13 @@ export const ordersRouter = router({
     }),
 
   incompleteList: adminProcedure.query(async () => getIncompleteCheckoutLeads()),
+
+  /** Removes one order together with its identity document and receipt files. */
+  delete: adminProcedure.input(z.object({ id: z.number().int().positive() })).mutation(async ({ input }) => {
+    const removed = await purgeRecords({ orderIds: [input.id], leadIds: [], customerIds: [], conversationIds: [], sessionPrefixes: [] });
+    if (!removed.orders) throw new Error("الطلب غير موجود");
+    return { success: true } as const;
+  }),
 
   /** A link the store can send by SMS or read over the phone: it reopens the customer's checkout on the payment step under their reference. */
   resumeLink: adminProcedure.input(z.object({ leadId: z.number().int().positive() })).query(async ({ input, ctx }) => {
